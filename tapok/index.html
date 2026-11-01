@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<title>Тапок с балкона</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700&display=swap">
+<style>
+/* One dark night scene by choice: balcony top-left, street below, HUD strip on top. */
+:root {
+  --night: #141416; --paper: #f2f1ec; --muted: #9a9aa2; --red: #d62828; --line: #33333b;
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--night); color: var(--paper); font-family: var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px; box-sizing: border-box; overflow: hidden; touch-action: none;
+  -webkit-user-select: none; user-select: none;
+}
+.app { height: 100%; max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+h1 { font-family: var(--display); font-weight: 800; font-size: 19px; margin: 0; line-height: 1.1; }
+h1 span { color: var(--red); }
+.tag { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.scores { display: flex; gap: 14px; font-variant-numeric: tabular-nums; text-align: right; }
+.scores b { display: block; font-family: var(--display); font-size: 20px; }
+.scores small { font-size: 11px; color: var(--muted); }
+.stage { position: relative; flex: 1; min-height: 0; border-radius: 18px; overflow: hidden; background: #0d0d10; }
+canvas { display: block; width: 100%; height: 100%; }
+.overlay {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 24px; text-align: center; background: rgba(13,13,16,.82);
+}
+.overlay h2 { font-family: var(--display); font-weight: 800; font-size: 26px; margin: 0; }
+.overlay p { margin: 0; color: var(--muted); max-width: 290px; line-height: 1.45; }
+.overlay button {
+  margin-top: 6px; font: 700 16px var(--body); color: #141416; background: var(--paper);
+  border: 0; border-radius: 999px; padding: 14px 30px; cursor: pointer;
+}
+.overlay button:active { transform: scale(.97); }
+.overlay .big { font-family: var(--display); font-size: 44px; color: var(--paper); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Тапок <span>с балкона</span></h1>
+      <div class="tag">Тяни назад — отпускай. Верни тишину.</div>
+    </div>
+    <div class="scores">
+      <div><b id="score">0</b><small>тишина</small></div>
+      <div><b id="best">0</b><small>рекорд</small></div>
+    </div>
+  </header>
+  <div class="stage" id="stage">
+    <canvas id="c"></canvas>
+    <div class="overlay" id="start">
+      <h2>23:40. Под окном шумят.</h2>
+      <p>Тяни пальцем назад и отпускай. Попал — тапок вернут. Промах — он остался на улице. Красный носок на дереве: +3 и тапок назад.</p>
+      <button id="go">Кидаем</button>
+    </div>
+    <div class="overlay" id="over" hidden>
+      <h2>Тапки кончились.</h2>
+      <div class="big" id="final">0</div>
+      <p id="line"></p>
+      <button id="again">Ещё раз</button>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  const tg = window.Telegram && window.Telegram.WebApp;
+  try { tg && tg.ready(); tg && tg.expand(); } catch (e) {}
+  const haptic = (t) => { try { tg && tg.HapticFeedback && (t === 'bad' ? tg.HapticFeedback.notificationOccurred('error') : tg.HapticFeedback.impactOccurred(t)); } catch (e) {} };
+  const $ = (id) => document.getElementById(id);
+
+  let best = 0;
+  try { best = +localStorage.getItem('tapok_best') || 0; } catch (e) {}
+  try { tg && tg.CloudStorage && tg.CloudStorage.getItem('tapok_best', (e, v) => { if (!e && v) { best = Math.max(best, +v || 0); $('best').textContent = best; } }); } catch (e) {}
+  $('best').textContent = best;
+  const saveBest = () => {
+    try { localStorage.setItem('tapok_best', String(best)); } catch (e) {}
+    try { tg && tg.CloudStorage && tg.CloudStorage.setItem('tapok_best', String(best)); } catch (e) {}
+  };
+
+  const cv = $('c'), ctx = cv.getContext('2d');
+  let Wd = 360, Hd = 640, dpr = 1;
+  function resize() {
+    const r = $('stage').getBoundingClientRect();
+    dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    Wd = r.width; Hd = r.height;
+    cv.width = Wd * dpr; cv.height = Hd * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const PAPER = '#f2f1ec', INK = '#141416', RED = '#d62828';
+  const G = () => Hd * 1.45;                      // gravity scales with screen
+  const ground = () => Hd - 46;
+  const origin = () => ({ x: 92, y: Math.min(220, Hd * 0.3) });
+
+  const KINDS = [
+    { name: 'car', w: 74, h: 30, sound: 'УИУ-УИУ', line: 'сигналка' },
+    { name: 'speaker', w: 40, h: 46, sound: 'БУМ-БУМ', line: 'колонка' },
+    { name: 'scooter', w: 52, h: 40, sound: 'ДЗЫНЬ', line: 'самокат' },
+    { name: 'cat', w: 46, h: 30, sound: 'МЯУУУ', line: 'кот' },
+  ];
+  const LINES = [
+    'Зато высказался.',
+    'Теперь ты в одном носке. Как обычно.',
+    'Соседи всё поняли.',
+    'Тишина — это роскошь.',
+    'Спустишься за тапками утром. Наверное.',
+    'Чай, кстати, остыл.',
+  ];
+
+  let state = 'menu', score = 0, tapki = 5, targets = [], flying = null, drag = null, pops = [], sock = null, wind = 0, spawnT = 0, t0 = 0, landed = [];
+
+  function reset() {
+    score = 0; tapki = 5; targets = []; flying = null; drag = null; pops = []; landed = [];
+    sock = null; spawnT = 0.3; newWind();
+    $('score').textContent = 0;
+  }
+  function newWind() { wind = Math.round((Math.random() * 2 - 1) * Math.min(3, 1 + score / 8)) ; }
+
+  function spawn() {
+    const k = KINDS[Math.floor(Math.random() * KINDS.length)];
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    const sp = (38 + Math.random() * 30 + score * 3.2) * dir;
+    targets.push({ k, x: dir < 0 ? Wd + k.w : -k.w, y: ground(), vx: sp, ph: Math.random() * 6, hit: 0 });
+  }
+
+  function throwIt(vx, vy) {
+    const o = origin();
+    flying = { x: o.x, y: o.y, vx, vy, r: 0, vr: (vx > 0 ? 1 : -1) * 11 };
+    tapki -= 1; haptic('light');
+  }
+
+  // input: pull back anywhere, release to throw
+  const pt = (e) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  cv.addEventListener('pointerdown', (e) => { if (state !== 'play' || flying || tapki <= 0) return; drag = { a: pt(e), b: pt(e) }; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove', (e) => { if (drag) drag.b = pt(e); });
+  const release = () => {
+    if (!drag) return;
+    const v = launchVel(); drag = null;
+    if (v && Math.hypot(v.vx, v.vy) > 60) throwIt(v.vx, v.vy);
+  };
+  cv.addEventListener('pointerup', release);
+  cv.addEventListener('pointercancel', () => { drag = null; });
+
+  function launchVel() {
+    if (!drag) return null;
+    let dx = drag.a.x - drag.b.x, dy = drag.a.y - drag.b.y;
+    const len = Math.hypot(dx, dy), max = Math.min(Wd, Hd) * 0.45;
+    if (len > max) { dx *= max / len; dy *= max / len; }
+    const k = Hd * 0.0048;
+    return { vx: dx * k * 1.0, vy: dy * k * 1.0 };
+  }
+
+  // drawing helpers
+  function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+  function slipper(x, y, ang, s = 1) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(s, s);
+    ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(0, 0, 16, 7, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = RED; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-2, -2); ctx.quadraticCurveTo(5, -12, 12, -2); ctx.stroke();
+    ctx.restore();
+  }
+  function redSock(x, y, s = 1) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.fillStyle = RED;
+    rr(-6, -16, 12, 22, 4); ctx.fill(); rr(-6, 0, 20, 10, 5); ctx.fill();
+    ctx.fillStyle = PAPER; ctx.fillRect(-6, -16, 12, 4); ctx.restore();
+  }
+
+  function drawBg(t) {
+    ctx.fillStyle = '#0d0d10'; ctx.fillRect(0, 0, Wd, Hd);
+    // moon + stars
+    ctx.fillStyle = '#e9e7df'; ctx.beginPath(); ctx.arc(Wd - 58, 64, 22, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#0d0d10'; ctx.beginPath(); ctx.arc(Wd - 48, 58, 20, 0, Math.PI * 2); ctx.fill();
+    for (let i = 0; i < 26; i++) {
+      const x = (i * 97.3) % Wd, y = (i * 53.7) % (Hd * 0.45) + 16;
+      ctx.globalAlpha = 0.25 + 0.25 * Math.sin(t * 1.5 + i); ctx.fillStyle = PAPER; ctx.fillRect(x, y, 2, 2);
+    }
+    ctx.globalAlpha = 1;
+    // houses across the street
+    const gy = ground();
+    for (let i = 0; i < 4; i++) {
+      const x = 150 + i * ((Wd - 140) / 4), h = 120 + (i % 2) * 60;
+      ctx.fillStyle = '#1b1b20'; ctx.fillRect(x, gy - h - 40, (Wd - 140) / 4 - 8, h);
+      for (let wy = gy - h - 26; wy < gy - 56; wy += 28)
+        for (let wx = x + 10; wx < x + (Wd - 140) / 4 - 22; wx += 22) {
+          const on = ((wx * 7 + wy * 3) | 0) % 5 === 0;
+          ctx.fillStyle = on ? '#e9d9a6' : '#26262c'; ctx.fillRect(wx, wy, 10, 14);
+        }
+    }
+    // street lamp
+    ctx.strokeStyle = '#2c2c33'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(Wd * 0.62, gy); ctx.lineTo(Wd * 0.62, gy - 150); ctx.lineTo(Wd * 0.62 + 24, gy - 150); ctx.stroke();
+    const grd = ctx.createRadialGradient(Wd * 0.62 + 24, gy - 146, 2, Wd * 0.62 + 24, gy - 40, 120);
+    grd.addColorStop(0, 'rgba(240,226,180,.28)'); grd.addColorStop(1, 'rgba(240,226,180,0)');
+    ctx.fillStyle = grd; ctx.fillRect(Wd * 0.62 - 100, gy - 150, 250, 150);
+    // tree
+    const tx = Wd - 70, ty = gy - 10;
+    ctx.fillStyle = '#24242a'; ctx.fillRect(tx - 5, ty - 120, 10, 120);
+    ctx.fillStyle = '#1d1d22'; ctx.beginPath(); ctx.arc(tx, ty - 150, 48, 0, Math.PI * 2); ctx.arc(tx - 34, ty - 120, 32, 0, Math.PI * 2); ctx.arc(tx + 30, ty - 118, 30, 0, Math.PI * 2); ctx.fill();
+    // ground
+    ctx.fillStyle = '#1a1a1f'; ctx.fillRect(0, gy, Wd, Hd - gy);
+    ctx.fillStyle = '#26262c'; for (let x = 10; x < Wd; x += 40) ctx.fillRect(x, gy + 20, 20, 3);
+  }
+
+  function drawBalcony(t) {
+    const o = origin();
+    // wall
+    ctx.fillStyle = '#202026'; ctx.fillRect(0, 0, 58, Hd);
+    ctx.fillStyle = '#2a2a31'; for (let y = 12; y < Hd; y += 26) ctx.fillRect(0, y, 58, 2);
+    // hero
+    const hx = o.x - 26, hy = o.y - 36;
+    ctx.fillStyle = INK; rr(hx - 26, hy + 30, 52, 60, 14); ctx.fill();
+    ctx.strokeStyle = '#3a3a42'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
+    rr(hx - 24, hy - 24, 48, 50, 12); ctx.fill(); ctx.stroke();
+    // cowlick
+    ctx.beginPath(); ctx.moveTo(hx + 2, hy - 24); ctx.quadraticCurveTo(hx + 4, hy - 38, hx + 12, hy - 36); ctx.stroke();
+    // eyes: small left, big right (angry when aiming)
+    const aim = !!drag;
+    ctx.fillStyle = INK;
+    ctx.beginPath(); ctx.arc(hx - 9, hy - 2, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx + 9, hy - 2, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 2.5; ctx.beginPath();
+    if (aim) { ctx.moveTo(hx - 14, hy - 12); ctx.lineTo(hx - 4, hy - 8); ctx.moveTo(hx + 16, hy - 13); ctx.lineTo(hx + 3, hy - 8); }
+    else { ctx.moveTo(hx - 14, hy - 10); ctx.lineTo(hx - 4, hy - 10); ctx.moveTo(hx + 3, hy - 12); ctx.lineTo(hx + 16, hy - 12); }
+    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(hx - 7, hy + 13); ctx.lineTo(hx + 8, hy + 13); ctx.stroke();
+    // cold tea on the railing
+    ctx.fillStyle = PAPER; ctx.beginPath(); ctx.moveTo(o.x + 4, o.y + 2); ctx.lineTo(o.x + 20, o.y + 2); ctx.lineTo(o.x + 18, o.y + 18); ctx.lineTo(o.x + 6, o.y + 18); ctx.fill();
+    // railing
+    ctx.fillStyle = '#3a3a42'; ctx.fillRect(0, o.y + 18, o.x + 46, 6);
+    ctx.fillStyle = '#26262c'; ctx.fillRect(0, o.y + 24, o.x + 46, 70);
+    ctx.strokeStyle = '#3a3a42'; ctx.lineWidth = 3;
+    for (let x = 64; x < o.x + 46; x += 14) { ctx.beginPath(); ctx.moveTo(x, o.y + 24); ctx.lineTo(x, o.y + 94); ctx.stroke(); }
+    ctx.fillStyle = '#3a3a42'; ctx.fillRect(0, o.y + 94, o.x + 56, 8);
+    // slipper in hand
+    if (state === 'play' && !flying && tapki > 0) slipper(o.x, o.y - 6, -0.4);
+  }
+
+  function drawTarget(g, t) {
+    const x = g.x, y = g.y, k = g.k, bob = Math.sin(t * 9 + g.ph) * 1.5;
+    ctx.save();
+    if (g.hit) ctx.globalAlpha = Math.max(0, 1 - g.hit);
+    if (k.name === 'car') {
+      ctx.fillStyle = '#3a3a42'; rr(x - 37, y - 22, 74, 18, 6); ctx.fill(); rr(x - 20, y - 34, 40, 14, 6); ctx.fill();
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(x - 22, y - 4, 7, 0, 7); ctx.arc(x + 22, y - 4, 7, 0, 7); ctx.fill();
+      if (!g.hit && Math.sin(t * 12) > 0) { ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(x, y - 37, 4, 0, 7); ctx.fill(); }
+    } else if (k.name === 'speaker') {
+      ctx.fillStyle = '#3a3a42'; rr(x - 20, y - 46 + bob, 40, 46, 6); ctx.fill();
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(x, y - 16 + bob, 11 + Math.abs(bob), 0, 7); ctx.arc(x, y - 36 + bob, 5, 0, 7); ctx.fill();
+    } else if (k.name === 'scooter') {
+      ctx.strokeStyle = '#4a4a54'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(x - 20, y - 6); ctx.lineTo(x + 18, y - 6); ctx.lineTo(x + 16 * Math.sign(g.vx || 1), y - 40); ctx.stroke();
+      ctx.fillStyle = INK; ctx.strokeStyle = '#4a4a54'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x - 20, y - 4, 6, 0, 7); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(x + 18, y - 4, 6, 0, 7); ctx.fill(); ctx.stroke();
+    } else {
+      ctx.fillStyle = '#4a4a54'; ctx.beginPath(); ctx.ellipse(x, y - 12, 18, 11, 0, 0, 7); ctx.fill();
+      const hx = x + 16 * Math.sign(g.vx || 1); ctx.beginPath(); ctx.arc(hx, y - 24 + bob, 9, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(hx - 8, y - 29 + bob); ctx.lineTo(hx - 5, y - 39 + bob); ctx.lineTo(hx - 1, y - 31 + bob); ctx.moveTo(hx + 8, y - 29 + bob); ctx.lineTo(hx + 5, y - 39 + bob); ctx.lineTo(hx + 1, y - 31 + bob); ctx.fill();
+      ctx.strokeStyle = '#4a4a54'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x - 16 * Math.sign(g.vx || 1), y - 14); ctx.quadraticCurveTo(x - 30 * Math.sign(g.vx || 1), y - 30, x - 22 * Math.sign(g.vx || 1), y - 36 + bob); ctx.stroke();
+    }
+    if (!g.hit) {
+      ctx.font = '800 11px Unbounded, Arial Black, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = Math.sin(t * 10 + g.ph) > 0 ? PAPER : RED;
+      ctx.fillText(k.sound, x, y - k.h - 16 + bob);
+    }
+    ctx.restore();
+  }
+
+  function drawAim() {
+    const v = launchVel(); if (!v) return;
+    const o = origin();
+    let x = o.x, y = o.y, vx = v.vx, vy = v.vy;
+    for (let i = 0; i < 16; i++) {
+      for (let s = 0; s < 3; s++) { const dt = 1 / 60; vx += wind * 22 * dt; vy += G() * dt; x += vx * dt; y += vy * dt; }
+      ctx.globalAlpha = 1 - i / 16; ctx.fillStyle = PAPER; ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHud(t) {
+    // slippers left
+    for (let i = 0; i < Math.max(tapki, 0); i++) slipper(Wd - 26 - i * 30, 22, 0, 0.8);
+    // wind
+    ctx.font = '700 12px Manrope, sans-serif'; ctx.fillStyle = '#9a9aa2'; ctx.textAlign = 'left';
+    const arrow = wind === 0 ? 'штиль' : (wind > 0 ? '→'.repeat(Math.abs(wind)) : '←'.repeat(Math.abs(wind)));
+    ctx.fillText('ветер ' + arrow, 70, 24);
+    pops.forEach(p => {
+      ctx.globalAlpha = Math.max(0, 1 - p.t); ctx.font = '800 ' + p.size + 'px Unbounded, Arial Black, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillStyle = p.color; ctx.fillText(p.txt, p.x, p.y - p.t * 30);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  function addPop(txt, x, y, color = PAPER, size = 16) { pops.push({ txt, x, y, color, size, t: 0 }); }
+
+  function step(dt, t) {
+    if (state !== 'play') return;
+    spawnT -= dt;
+    const maxT = Math.min(4, 2 + Math.floor(score / 6));
+    if (spawnT <= 0 && targets.filter(g => !g.hit).length < maxT) { spawn(); spawnT = Math.max(0.9, 2.6 - score * 0.06); }
+    if (!sock && score >= 3 && Math.random() < dt * 0.06) sock = { x: Wd - 70 + (Math.random() * 40 - 20), y: ground() - 150 + (Math.random() * 30 - 15), t: 0 };
+    if (sock) { sock.t += dt; if (sock.t > 8) sock = null; }
+    targets.forEach(g => { if (g.hit) g.hit += dt * 1.6; else g.x += g.vx * dt; });
+    targets = targets.filter(g => g.hit < 1 && g.x > -120 && g.x < Wd + 120);
+    pops.forEach(p => p.t += dt * 0.9); pops = pops.filter(p => p.t < 1);
+    if (flying) {
+      const f = flying;
+      f.vx += wind * 22 * dt; f.vy += G() * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.r += f.vr * dt;
+      let hitSomething = false;
+      for (const g of targets) {
+        if (g.hit) continue;
+        if (Math.abs(f.x - g.x) < g.k.w / 2 + 3 && f.y > g.y - g.k.h && f.y < g.y + 4) {
+          g.hit = 0.01; score += 1; tapki += 1; hitSomething = true;
+          addPop('ТИШИНА.', g.x, g.y - g.k.h - 30, PAPER, 18); haptic('medium'); break;
+        }
+      }
+      if (!hitSomething && sock && Math.hypot(f.x - sock.x, f.y - sock.y) < 26) {
+        score += 3; tapki += 1; hitSomething = true; addPop('+3 НОСОК!', sock.x, sock.y - 20, RED, 18); sock = null; haptic('heavy');
+      }
+      if (hitSomething) { flying = null; newWind(); $('score').textContent = score; }
+      else if (f.y > ground() - 4 || f.x > Wd + 40 || f.x < -40) {
+        if (f.y > ground() - 4) landed.push({ x: f.x, r: f.r }); if (landed.length > 8) landed.shift();
+        addPop('мимо', Math.min(Wd - 30, Math.max(30, f.x)), ground() - 20, '#9a9aa2', 13);
+        flying = null; newWind();
+        if (tapki <= 0) gameOver();
+      }
+    }
+  }
+
+  function gameOver() {
+    state = 'over'; haptic('bad');
+    if (score > best) { best = score; $('best').textContent = best; saveBest(); }
+    $('final').textContent = score;
+    $('line').textContent = (score > 0 && score >= best ? 'Новый рекорд. ' : '') + LINES[Math.floor(Math.random() * LINES.length)];
+    setTimeout(() => { $('over').hidden = false; }, 500);
+  }
+
+  function frame(now) {
+    const t = now / 1000, dt = Math.min(0.033, t - (t0 || t)); t0 = t;
+    step(dt, t);
+    drawBg(t);
+    landed.forEach(l => slipper(l.x, ground() + 6, l.r % 0.6, 0.8));
+    if (sock) redSock(sock.x, sock.y + Math.sin(t * 3) * 2);
+    targets.forEach(g => drawTarget(g, t));
+    drawBalcony(t);
+    if (flying) slipper(flying.x, flying.y, flying.r);
+    drawAim();
+    drawHud(t);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  const start = () => { resize(); reset(); state = 'play'; $('start').hidden = true; $('over').hidden = true; };
+  $('go').addEventListener('click', start);
+  $('again').addEventListener('click', start);
+})();
+</script>
+</body>
+</html>

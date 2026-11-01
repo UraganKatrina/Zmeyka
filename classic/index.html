@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<title>Змейка классика</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700&display=swap">
+<style>
+/* Layout: one-screen game — header score strip, square board, d-pad under it. Single dark look by choice. */
+:root {
+  --night: #141416;
+  --panel: #9bad5e;
+  --line: #8fa154;
+  --paper: #f2f1ec;
+  --ink: #26301a;
+  --muted: #9a9aa2;
+  --red: #d62828;
+  --steam: #c9c9cf;
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--night); color: var(--paper); font-family: var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+  box-sizing: border-box; overflow: hidden; touch-action: none;
+  -webkit-user-select: none; user-select: none;
+}
+.app { height: 100%; max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+h1 { font-family: var(--display); font-weight: 800; font-size: 20px; margin: 0; line-height: 1.1; letter-spacing: .01em; }
+h1 span { color: var(--red); }
+.tag { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.scores { display: flex; gap: 14px; font-variant-numeric: tabular-nums; text-align: right; }
+.scores b { display: block; font-family: var(--display); font-size: 20px; }
+.scores small { font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.board { position: relative; width: 100%; aspect-ratio: 1 / 1; max-width: 100%; border-radius: 14px; background: var(--panel);
+  box-shadow: inset 0 0 0 4px #7d8f47; overflow: hidden; flex-shrink: 1; min-height: 0; }
+canvas { width: 100%; height: 100%; display: block; }
+.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: color-mix(in srgb, var(--night) 82%, transparent); text-align: center; padding: 20px; }
+.overlay h2 { font-family: var(--display); font-weight: 800; font-size: 28px; margin: 0; text-wrap: balance; }
+.overlay p { margin: 0; color: var(--muted); font-size: 15px; max-width: 28ch; line-height: 1.45; }
+.overlay .big { font-family: var(--display); font-size: 42px; color: var(--paper); }
+.btn { font: 700 16px var(--body); background: var(--paper); color: var(--night); border: 0; border-radius: 999px; padding: 14px 28px; cursor: pointer; margin-top: 6px; }
+.btn:focus-visible, .pad button:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; }
+.pad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(2, 56px); gap: 8px; justify-content: center; }
+.pad button { background: #222228; color: var(--paper); border: 2px solid #33333b; border-radius: 14px; font-size: 22px; cursor: pointer; touch-action: none; }
+.pad button:active { background: #33333b; }
+.pad .up { grid-column: 2; grid-row: 1; } .pad .left { grid-column: 1; grid-row: 2; } .pad .down { grid-column: 2; grid-row: 2; } .pad .right { grid-column: 3; grid-row: 2; }
+.legend { display: flex; justify-content: center; gap: 16px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+@media (max-height: 640px) { .pad { grid-template-rows: repeat(2, 46px); } .legend { display: none; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div>
+      <h1>Змейка<br>классика<span>.</span></h1>
+      <div class="tag">от это_нормально</div>
+    </div>
+    <div class="scores">
+      <div><small>Очки</small><b id="score">0</b></div>
+      <div><small>Рекорд</small><b id="best">0</b></div>
+    </div>
+  </header>
+
+  <div class="board" id="board">
+    <canvas id="cv" width="600" height="600" aria-label="Игровое поле"></canvas>
+    <div class="overlay" id="startScreen">
+      <h2>Как на старом<br>телефоне</h2>
+      <p>Свайп или стрелки. Стены пропускают: уходишь вправо — выходишь слева. Нельзя только врезаться в себя.</p>
+      <button class="btn" id="startBtn">Играть</button>
+    </div>
+    <div class="overlay" id="overScreen" hidden>
+      <div class="big" id="finalScore">0</div>
+      <h2>Укусила себя.</h2>
+      <p id="overText">Это нормально. Ещё раз?</p>
+      <button class="btn" id="againBtn">Ещё раз</button>
+    </div>
+  </div>
+
+  <div class="pad" aria-label="Управление">
+    <button class="up" data-dir="up" aria-label="Вверх">▲</button>
+    <button class="left" data-dir="left" aria-label="Влево">◀</button>
+    <button class="down" data-dir="down" aria-label="Вниз">▼</button>
+    <button class="right" data-dir="right" aria-label="Вправо">▶</button>
+  </div>
+  <div class="legend"><span><i style="background:#26301a"></i>еда +1</span><span><i style="background:#26301a;border-radius:50%"></i>бонус +5, пока мигает</span></div>
+</div>
+
+<script>
+(() => {
+  const tg = window.Telegram && window.Telegram.WebApp;
+  if (tg) { try { tg.ready(); tg.expand(); tg.setHeaderColor && tg.setHeaderColor('#141416'); tg.setBackgroundColor && tg.setBackgroundColor('#141416'); } catch (e) {} }
+  const haptic = (t) => { try { tg && tg.HapticFeedback && (t === 'bad' ? tg.HapticFeedback.notificationOccurred('error') : tg.HapticFeedback.impactOccurred(t)); } catch (e) {} };
+
+  const N = 20, cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  const $ = (id) => document.getElementById(id);
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const C = { panel: css('--panel'), line: css('--line'), ink: css('--ink'), paper: css('--paper'), night: css('--night') };
+
+  let snake, dir, queue = [], eaten = 0, food, sock, score, best = 0, tickMs, timer = null, alive = false, frame = 0;
+
+  // best score: Telegram CloudStorage when available, else localStorage
+  const loadBest = () => {
+    try {
+      if (tg && tg.CloudStorage) { tg.CloudStorage.getItem('classic_best', (e, v) => { if (!e && v) { best = +v || 0; $('best').textContent = best; } }); }
+    } catch (e) {}
+    try { best = Math.max(best, +(localStorage.getItem('classic_snake_best') || 0)); } catch (e) {}
+    $('best').textContent = best;
+  };
+  const saveBest = () => {
+    try { localStorage.setItem('classic_snake_best', String(best)); } catch (e) {}
+    try { tg && tg.CloudStorage && tg.CloudStorage.setItem('classic_best', String(best)); } catch (e) {}
+  };
+
+  const free = () => {
+    while (true) {
+      const p = { x: Math.floor(Math.random() * N), y: Math.floor(Math.random() * N) };
+      if (!snake.some(s => s.x === p.x && s.y === p.y) && !(food && food.x === p.x && food.y === p.y)) return p;
+    }
+  };
+
+  function reset() {
+    snake = [{ x: 9, y: 10 }, { x: 8, y: 10 }, { x: 7, y: 10 }, { x: 6, y: 10 }];
+    dir = { x: 1, y: 0 }; queue = [];
+    score = 0; tickMs = 190; eaten = 0; food = null; food = free(); sock = null;
+    $('score').textContent = 0;
+  }
+
+  function start() {
+    reset(); alive = true;
+    $('startScreen').hidden = true; $('overScreen').hidden = true;
+    clearTimeout(timer); loop();
+  }
+
+  function loop() {
+    if (!alive) return;
+    step(); draw();
+    timer = setTimeout(loop, tickMs);
+  }
+
+  function step() {
+    if (queue.length) dir = queue.shift();
+    const h = { x: (snake[0].x + dir.x + N) % N, y: (snake[0].y + dir.y + N) % N };
+    if (snake.slice(0, -1).some(s => s.x === h.x && s.y === h.y)) return gameOver();
+    snake.unshift(h);
+    let grew = false;
+    if (h.x === food.x && h.y === food.y) { score += 1; eaten++; grew = true; food = free(); haptic('light'); if (eaten % 5 === 0 && !sock) { sock = free(); sock.ttl = 40; } }
+    if (sock && h.x === sock.x && h.y === sock.y) { score += 5; grew = true; sock = null; haptic('medium'); }
+    if (!grew) snake.pop();
+    if (grew) { $('score').textContent = score; tickMs = Math.max(85, 190 - score * 1.5); }
+    if (sock && --sock.ttl <= 0) sock = null;
+    frame++;
+  }
+
+  const OVER = ['Это нормально. Ещё раз?', 'Бывает. Даже на старой Нокии.', 'Отдохни, выпей чаю и снова.', 'Хвост был слишком близко.'];
+  function gameOver() {
+    alive = false; haptic('bad');
+    if (score > best) { best = score; saveBest(); $('best').textContent = best; $('overText').textContent = 'Новый рекорд! Как в 2003-м.'; }
+    else $('overText').textContent = OVER[Math.floor(Math.random() * OVER.length)];
+    $('finalScore').textContent = score;
+    $('overScreen').hidden = false; draw();
+  }
+
+  function px(x, y, s, pad) { ctx.fillRect(x * s + pad, y * s + pad, s - pad * 2, s - pad * 2); }
+  function draw() {
+    const W = cv.width, s = W / N;
+    ctx.fillStyle = C.panel; ctx.fillRect(0, 0, W, W);
+    ctx.fillStyle = C.line;
+    for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) px(x, y, s, s * .42);
+    ctx.fillStyle = C.ink;
+    if (food) { const q = s / 3; [[1,0],[0,1],[2,1],[1,2]].forEach(([a,b]) => ctx.fillRect(food.x * s + a * q, food.y * s + b * q, q, q)); }
+    if (sock && (sock.ttl > 12 || frame % 2)) { ctx.beginPath(); ctx.arc(sock.x * s + s / 2, sock.y * s + s / 2, s * .42, 0, 7); ctx.fill(); ctx.fillStyle = C.panel; ctx.fillRect(sock.x * s + s * .3, sock.y * s + s * .44, s * .4, s * .12); ctx.fillStyle = C.ink; }
+    snake.forEach((p, i) => px(p.x, p.y, s, i === 0 ? 1 : s * .08));
+    if (snake.length) {
+      const h = snake[0], cx = h.x * s + s / 2, cy = h.y * s + s / 2, ox = -dir.y, oy = dir.x;
+      ctx.fillStyle = C.panel;
+      ctx.fillRect(cx + dir.x * s * .15 + ox * s * .2 - s * .07, cy + dir.y * s * .15 + oy * s * .2 - s * .07, s * .14, s * .14);
+      ctx.fillRect(cx + dir.x * s * .15 - ox * s * .2 - s * .1, cy + dir.y * s * .15 - oy * s * .2 - s * .1, s * .2, s * .2);
+    }
+  }
+
+  const DIRS = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
+  const turn = (name) => { const d = DIRS[name]; if (!d) return; const last = queue.length ? queue[queue.length - 1] : dir; if ((d.x === -last.x && d.y === -last.y) || (d.x === last.x && d.y === last.y) || queue.length > 2) return; queue.push(d); };
+  addEventListener('keydown', (e) => {
+    const k = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' }[e.code];
+    if (k) { e.preventDefault(); if (!alive && !$('startScreen').hidden) start(); turn(k); }
+    if ((e.code === 'Space' || e.code === 'Enter') && !alive) { e.preventDefault(); start(); }
+  });
+  document.querySelectorAll('.pad button').forEach(b => b.addEventListener('pointerdown', (e) => { e.preventDefault(); turn(b.dataset.dir); haptic('light'); }));
+  let t0 = null;
+  $('board').addEventListener('pointerdown', (e) => { t0 = { x: e.clientX, y: e.clientY }; });
+  $('board').addEventListener('pointerup', (e) => {
+    if (!t0) return; const dx = e.clientX - t0.x, dy = e.clientY - t0.y; t0 = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
+    turn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  });
+  $('startBtn').addEventListener('click', start);
+  $('againBtn').addEventListener('click', start);
+
+  loadBest(); reset(); draw();
+})();
+</script>
+</body>
+</html>

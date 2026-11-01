@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<title>Сосед улетел</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700&display=swap">
+<style>
+/* One dusk courtyard scene by choice: HUD strip, full-height play area, newspaper game-over. */
+:root {
+  --night: #141416; --paper: #f2f1ec; --muted: #9a9aa2; --red: #d62828; --news: #ecebe4; --ink: #1e1e20;
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--night); color: var(--paper); font-family: var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px; box-sizing: border-box; overflow: hidden; touch-action: none;
+  -webkit-user-select: none; user-select: none;
+}
+.app { height: 100%; max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+h1 { font-family: var(--display); font-weight: 800; font-size: 19px; margin: 0; line-height: 1.1; }
+h1 span { color: var(--red); }
+.tag { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.scores { display: flex; gap: 14px; font-variant-numeric: tabular-nums; text-align: right; }
+.scores b { display: block; font-family: var(--display); font-size: 20px; }
+.scores small { font-size: 11px; color: var(--muted); }
+.stage { position: relative; flex: 1; min-height: 0; border-radius: 18px; overflow: hidden; background: #1a1a20; }
+canvas { display: block; width: 100%; height: 100%; }
+.overlay {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 24px; text-align: center; background: rgba(13,13,16,.8);
+}
+.overlay h2 { font-family: var(--display); font-weight: 800; font-size: 24px; margin: 0; text-wrap: balance; }
+.overlay p { margin: 0; color: var(--muted); max-width: 300px; line-height: 1.45; }
+.btn {
+  margin-top: 6px; font: 700 16px var(--body); color: #141416; background: var(--paper);
+  border: 0; border-radius: 999px; padding: 14px 30px; cursor: pointer;
+}
+.btn:active { transform: scale(.97); }
+.btn:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; }
+.news {
+  background: var(--news); color: var(--ink); width: min(320px, 100%); padding: 18px 18px 16px; border-radius: 4px;
+  transform: rotate(-2deg); box-shadow: 0 12px 40px rgba(0,0,0,.5); text-align: center;
+}
+.news .mast { font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: .02em; border-bottom: 3px double var(--ink); padding-bottom: 6px; }
+.news .sub { font-size: 11px; color: #5a5a5c; margin: 6px 0 10px; }
+.news .stamp { display: inline-block; font-family: var(--display); font-weight: 800; color: var(--red); border: 3px solid var(--red); padding: 2px 8px; font-size: 13px; transform: rotate(-4deg); margin-bottom: 8px; }
+.news .head { font-family: var(--display); font-weight: 800; font-size: 21px; line-height: 1.15; }
+.news .head b { color: var(--red); }
+.news .foot { font-size: 12px; color: #5a5a5c; margin-top: 10px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Сосед <span>улетел</span></h1>
+      <div class="tag">Держи палец — ковёр летит вверх.</div>
+    </div>
+    <div class="scores">
+      <div><b id="score">0</b><small>метров</small></div>
+      <div><b id="best">0</b><small>рекорд</small></div>
+    </div>
+  </header>
+  <div class="stage" id="stage">
+    <canvas id="c"></canvas>
+    <div class="overlay" id="start">
+      <h2>Говорят, сосед купил ковёр-самолёт.</h2>
+      <p>Так и есть. Держи палец — ковёр набирает высоту. Земля пружинит, а вот в дома и бельё лучше не врезаться. Уворачивайся от сплетен с лавочки: три прилипли — ковёр падает. Красный носок стряхивает сплетни.</p>
+      <button class="btn" id="go">Взлетаем</button>
+    </div>
+    <div class="overlay" id="over" hidden>
+      <div class="news">
+        <div class="mast">ВЕСТИ ПОДЪЕЗДА</div>
+        <div class="sub">экстренный выпуск · только у нас</div>
+        <div class="stamp" id="stamp">СЕНСАЦИЯ</div>
+        <div class="head">СОСЕД УЛЕТЕЛ<br>НА <b id="final">0</b> МЕТРОВ</div>
+        <div class="foot" id="line"></div>
+      </div>
+      <button class="btn" id="again">Ещё полёт</button>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  const tg = window.Telegram && window.Telegram.WebApp;
+  try { tg && tg.ready(); tg && tg.expand(); } catch (e) {}
+  const haptic = (t) => { try { tg && tg.HapticFeedback && (t === 'bad' ? tg.HapticFeedback.notificationOccurred('error') : tg.HapticFeedback.impactOccurred(t)); } catch (e) {} };
+  const $ = (id) => document.getElementById(id);
+
+  let best = 0;
+  try { best = +localStorage.getItem('kover_best') || 0; } catch (e) {}
+  try { tg && tg.CloudStorage && tg.CloudStorage.getItem('kover_best', (e, v) => { if (!e && v) { best = Math.max(best, +v || 0); $('best').textContent = best; } }); } catch (e) {}
+  $('best').textContent = best;
+  const saveBest = () => {
+    try { localStorage.setItem('kover_best', String(best)); } catch (e) {}
+    try { tg && tg.CloudStorage && tg.CloudStorage.setItem('kover_best', String(best)); } catch (e) {}
+  };
+
+  const cv = $('c'), ctx = cv.getContext('2d');
+  let Wd = 360, Hd = 640;
+  function resize() {
+    const r = $('stage').getBoundingClientRect(), dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    Wd = r.width; Hd = r.height; cv.width = Wd * dpr; cv.height = Hd * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize); resize();
+
+  const PAPER = '#f2f1ec', INK = '#141416', RED = '#d62828';
+  const RUMORS = ['в кредит!', 'дорогущий!', 'а жена знает?', 'на какие деньги?', 'я сразу поняла', 'с турецкого рынка', 'говорят, краденый', 'вот это да!', 'а налоги?'];
+  const LINES = [
+    'Свидетели: все. Видевшие: никто.',
+    'Подробности — у бабушек на лавочке.',
+    'Соседи уже обсуждают. Это нормально.',
+    'Источник: «мне сказали».',
+    'Вернётся — расскажет. Наверное.',
+  ];
+  const ground = () => Hd - 34;
+
+  let state = 'menu', hold = false, y, vy, dist, cups, stuck, buildings, rumors, items, pops, nextB, nextR, shake, t0 = 0, crashT = 0, benchX;
+
+  function reset() {
+    y = Hd * 0.4; vy = 0; dist = 0; cups = 0; stuck = []; buildings = []; rumors = []; items = []; pops = [];
+    nextB = 320; nextR = 3.5; shake = 0; benchX = Wd + 40; crashT = 0;
+    $('score').textContent = 0;
+  }
+  const speed = () => 95 + Math.min(75, dist * 0.04);
+  const score = () => Math.floor(dist / 10) + cups * 5;
+  const PX = () => Wd * 0.28; // carpet x
+
+  // input: hold anywhere
+  const down = (e) => { if (state === 'play') { hold = true; e.preventDefault(); } };
+  const up = () => { hold = false; };
+  $('stage').addEventListener('pointerdown', down);
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+  window.addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); if (state === 'play') hold = true; else if (state !== 'crash') start(); } });
+  window.addEventListener('keyup', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') hold = false; });
+
+  function addBuilding(x) {
+    const minGap = Hd * 0.42, h = Hd * (0.12 + Math.random() * 0.28);
+    const hasLine = Math.random() < Math.min(0.35, 0.03 + dist / 8000);
+    buildings.push({ x, w: 70 + Math.random() * 50, h, lineY: hasLine ? Math.max(70, ground() - h - minGap - Math.random() * 60) : null, win: Math.floor(Math.random() * 1000) });
+    if (Math.random() < 0.7) items.push({ kind: 'cup', x: x + 40, y: ground() - h - 40 - Math.random() * 90 });
+    if (Math.random() < 0.12) items.push({ kind: 'sock', x: x + 110, y: Hd * (0.15 + Math.random() * 0.3) });
+  }
+
+  function addRumor() {
+    const txt = RUMORS[Math.floor(Math.random() * RUMORS.length)];
+    ctx.font = '700 12px Manrope, sans-serif';
+    const w = ctx.measureText(txt).width + 20;
+    const sx = Wd + 20, sy = ground() - 30;
+    const ty = y + (Math.random() * 80 - 40);
+    const T = 2.5;
+    rumors.push({ txt, w, x: sx, y: sy, vx: (PX() - sx) / T - speed() * 0.15, vy: (ty - sy) / T, stuck: false });
+    benchX = Wd - 70;
+  }
+
+  function hitRect(cx, cy, r, x0, y0, x1, y1) {
+    const nx = Math.max(x0, Math.min(cx, x1)), ny = Math.max(y0, Math.min(cy, y1));
+    return (cx - nx) ** 2 + (cy - ny) ** 2 < r * r;
+  }
+
+  function crash(reason) {
+    if (state !== 'play') return;
+    state = 'crash'; crashT = 0; hold = false; haptic('bad'); shake = 0.4;
+    setTimeout(gameOver, 900);
+    pops.push({ txt: reason, x: PX(), y: y - 40, t: 0, color: RED });
+  }
+
+  function gameOver() {
+    state = 'over';
+    const s = score();
+    $('final').textContent = s;
+    const record = s > best;
+    if (record) { best = s; $('best').textContent = best; saveBest(); }
+    $('stamp').textContent = record ? 'НОВЫЙ РЕКОРД' : 'СЕНСАЦИЯ';
+    $('line').textContent = LINES[Math.floor(Math.random() * LINES.length)] + (cups ? ` Выпито чашек чая: ${cups}.` : '');
+    $('over').hidden = false;
+  }
+
+  function step(dt) {
+    if (state === 'menu' || state === 'over') return;
+    if (state === 'crash') { crashT += dt; vy += 900 * dt; y = Math.min(ground() - 10, y + vy * dt); shake = Math.max(0, shake - dt); return; }
+    const heavy = 1 + stuck.length * 0.18;
+    const g = Hd * 0.62 * heavy, lift = Hd * 1.35;
+    vy += (g - (hold ? lift : 0)) * dt;
+    vy *= 1 - 1.6 * dt;
+    vy = Math.max(-Hd * 0.42, Math.min(Hd * 0.48, vy));
+    y += vy * dt;
+    if (y < 76) { y = 76; vy = Math.max(0, vy); }
+    const sp = speed();
+    dist += sp * dt;
+    $('score').textContent = score();
+
+    nextB -= sp * dt;
+    if (nextB <= 0) { addBuilding(Wd + 10); nextB = 250 + Math.random() * 150 - Math.min(50, dist / 150); }
+    nextR -= dt;
+    if (nextR <= 0) { addRumor(); nextR = Math.max(2.0, 4.0 - dist / 3000) + Math.random() * 1.5; }
+    benchX -= sp * dt * 0.4;
+
+    buildings.forEach(b => b.x -= sp * dt);
+    buildings = buildings.filter(b => b.x + b.w > -20);
+    items.forEach(i => i.x -= sp * dt);
+    items = items.filter(i => i.x > -30 && !i.got);
+    rumors.forEach(r => { if (!r.stuck) { r.x += r.vx * dt - sp * dt * 0.0; r.y += r.vy * dt; } });
+    rumors = rumors.filter(r => !r.stuck && r.x + r.w > -20 && r.y > -40);
+    pops.forEach(p => p.t += dt); pops = pops.filter(p => p.t < 1);
+
+    const cx = PX(), cy = y, R = 14;
+    if (y > ground() - 14) { y = ground() - 14; vy = -Hd * 0.4; pops.push({ txt: 'ой!', x: cx, y: cy - 50, t: 0, color: PAPER }); haptic('light'); }
+    for (const b of buildings) {
+      if (hitRect(cx, cy, R, b.x, ground() - b.h, b.x + b.w, ground())) return crash('бах!');
+      if (b.lineY !== null && cx > b.x - 70 && cx < b.x + b.w * 0.5 && Math.abs(cy - b.lineY) < 9) return crash('бельё!');
+    }
+    for (const r of rumors) {
+      if (r.stuck) continue;
+      if (Math.abs(r.x + r.w / 2 - cx) < r.w / 2 - 6 && Math.abs(r.y - cy) < 16) {
+        r.stuck = true; stuck.push(r.txt); haptic('medium');
+        pops.push({ txt: 'прилипло!', x: cx, y: cy - 50, t: 0, color: RED });
+        if (stuck.length >= 3) return crash('сплетни перевесили');
+      }
+    }
+    for (const it of items) {
+      if (Math.hypot(it.x - cx, it.y - cy) < 28) {
+        it.got = true;
+        if (it.kind === 'cup') { cups++; haptic('light'); pops.push({ txt: '+5', x: it.x, y: it.y - 16, t: 0, color: PAPER }); }
+        else { stuck = []; haptic('heavy'); pops.push({ txt: 'сплетни стряхнуты', x: it.x, y: it.y - 16, t: 0, color: RED }); }
+      }
+    }
+  }
+
+  // drawing
+  function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+  function cupShape(x, y, t) {
+    ctx.fillStyle = PAPER; ctx.beginPath(); ctx.moveTo(x - 9, y - 6); ctx.lineTo(x + 9, y - 6); ctx.lineTo(x + 7, y + 9); ctx.lineTo(x - 7, y + 9); ctx.fill();
+    ctx.strokeStyle = PAPER; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(x + 10, y, 4, -1.3, 1.3); ctx.stroke();
+    ctx.strokeStyle = 'rgba(242,241,236,.6)'; ctx.lineWidth = 1.6;
+    for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(x + i * 4, y - 9); ctx.quadraticCurveTo(x + i * 4 + Math.sin(t * 5 + i) * 3, y - 14, x + i * 4, y - 19); ctx.stroke(); }
+  }
+  function sockShape(x, y) {
+    ctx.fillStyle = RED; rr(x - 6, y - 14, 12, 20, 4); ctx.fill(); rr(x - 6, y + 1, 20, 10, 5); ctx.fill();
+    ctx.fillStyle = PAPER; ctx.fillRect(x - 6, y - 14, 12, 4);
+  }
+  function bubble(txt, x, y, w, stuckTo) {
+    ctx.fillStyle = stuckTo ? '#e8d9d9' : PAPER; rr(x, y - 13, w, 26, 13); ctx.fill();
+    ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(x + 11, y, 3.5, 0, 7); ctx.fill();
+    ctx.fillStyle = INK; ctx.font = '700 12px Manrope, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(txt, x + 19, y + 0.5);
+  }
+
+  function drawBg(t) {
+    const g = ctx.createLinearGradient(0, 0, 0, Hd);
+    g.addColorStop(0, '#15151b'); g.addColorStop(1, '#2a2730');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, Wd, Hd);
+    ctx.fillStyle = '#e9e7df'; ctx.beginPath(); ctx.arc(Wd - 60, 70, 20, 0, 7); ctx.fill();
+    // far skyline parallax
+    ctx.fillStyle = '#202027';
+    const off = (dist * 0.25) % 120;
+    for (let i = -1; i < Wd / 60 + 2; i++) { const h = 70 + ((i * 37 + Math.floor((dist * 0.25) / 120) * 13) % 5) * 22; ctx.fillRect(i * 60 - off % 60, ground() - h, 52, h); }
+  }
+  function drawBuilding(b) {
+    const top = ground() - b.h;
+    ctx.fillStyle = '#3a3a44'; ctx.fillRect(b.x, top, b.w, b.h);
+    ctx.fillStyle = '#4a4a56'; ctx.fillRect(b.x, top, b.w, 6);
+    for (let wy = top + 16; wy < ground() - 20; wy += 26)
+      for (let wx = b.x + 10, k = 0; wx < b.x + b.w - 20; wx += 22, k++) {
+        const on = ((b.win + wy * 3 + k * 7) | 0) % 4 === 0;
+        ctx.fillStyle = on ? '#e9d9a6' : '#2a2a32'; ctx.fillRect(wx, wy, 11, 14);
+      }
+    if (b.lineY !== null) {
+      ctx.strokeStyle = '#8a8a94'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(b.x - 70, b.lineY - 4); ctx.quadraticCurveTo(b.x - 10, b.lineY + 8, b.x + b.w * 0.5, b.lineY - 4); ctx.stroke();
+      ctx.strokeStyle = '#3a3a44'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(b.x + b.w * 0.5, b.lineY - 4); ctx.lineTo(b.x + b.w * 0.5, top); ctx.stroke();
+      const cl = [PAPER, RED, '#c9c9cf', PAPER];
+      cl.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(b.x - 58 + i * 26, b.lineY, 14, i % 2 ? 18 : 14); });
+    }
+  }
+  function drawBench() {
+    if (benchX < -80) return;
+    const x = benchX, gy = ground();
+    ctx.fillStyle = '#4a4a56'; ctx.fillRect(x - 34, gy - 16, 68, 5); ctx.fillRect(x - 30, gy - 11, 4, 11); ctx.fillRect(x + 26, gy - 11, 4, 11);
+    [-16, 14].forEach((dx, i) => {
+      ctx.fillStyle = '#5a5a66'; rr(x + dx - 11, gy - 40, 22, 26, 8); ctx.fill();
+      ctx.fillStyle = '#d8d6ce'; ctx.beginPath(); ctx.arc(x + dx, gy - 48, 9, 0, 7); ctx.fill();
+      ctx.fillStyle = i ? RED : '#8a8a94'; ctx.beginPath(); ctx.arc(x + dx, gy - 51, 10, Math.PI, 0); ctx.fill(); // headscarf
+    });
+  }
+  function drawCarpet(t) {
+    const x = PX(), cy = y, wave = (k) => Math.sin(t * 8 + k) * 3;
+    ctx.save();
+    if (shake > 0) ctx.translate((Math.random() - .5) * 8 * shake, 0);
+    const tilt = Math.max(-0.25, Math.min(0.3, vy / (Hd * 2.4)));
+    ctx.translate(x, cy); ctx.rotate(tilt);
+    // stuck rumors trail behind
+    stuck.forEach((s, i) => { ctx.font = '700 12px Manrope, sans-serif'; const w = ctx.measureText(s).width + 26; bubble(s, -40 - w - i * 8, 18 + i * 22, w, true); });
+    // neighbour: round head, flat cap, big moustache, tracksuit with two stripes, tea glass in a holder
+    const SKIN = '#f0d8bf', GING = '#d9732a';
+    ctx.fillStyle = '#26262e'; rr(-16, -32, 32, 32, 10); ctx.fill();
+    ctx.fillStyle = PAPER; ctx.fillRect(-12, -30, 2.5, 28); ctx.fillRect(-8, -30, 2.5, 28);
+    ctx.fillStyle = '#3a3a44'; ctx.fillRect(-4, -32, 8, 5); // zip collar
+    ctx.fillStyle = SKIN; ctx.strokeStyle = INK; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(0, -46, 15, 16, 0, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(13, -46, 3.5, -1.4, 1.4); ctx.stroke(); // ear
+    // ginger hair sticking out under the cap + sideburns
+    ctx.fillStyle = GING;
+    for (const [hx, hy, a] of [[-15, -55, -0.6], [-16, -50, -0.9], [-12, -57, -0.3], [14, -55, 0.7]]) { ctx.save(); ctx.translate(hx, hy); ctx.rotate(a); ctx.beginPath(); ctx.moveTo(-3, 0); ctx.lineTo(0, -7); ctx.lineTo(3, 0); ctx.fill(); ctx.restore(); }
+    ctx.fillRect(-15, -52, 4, 10); ctx.fillRect(11, -52, 4, 8);
+    // freckles
+    ctx.fillStyle = '#c98a5a'; for (const [fx, fy] of [[-8, -43], [-5, -41], [-9, -40], [8, -43], [10, -40], [6, -41]]) { ctx.beginPath(); ctx.arc(fx, fy, 0.9, 0, 7); ctx.fill(); }
+    // flat cap
+    ctx.fillStyle = '#5a5a66'; ctx.beginPath(); ctx.ellipse(-1, -58, 16, 7, -0.05, Math.PI, 0); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-17, -57); ctx.lineTo(10, -57); ctx.lineTo(24, -53); ctx.lineTo(8, -52); ctx.lineTo(-17, -54); ctx.closePath(); ctx.fill();
+    // eyes + brows
+    ctx.fillStyle = INK;
+    const sq = state === 'crash';
+    if (sq) { ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8, -50); ctx.lineTo(-3, -46); ctx.moveTo(-3, -50); ctx.lineTo(-8, -46); ctx.moveTo(3, -50); ctx.lineTo(8, -46); ctx.moveTo(8, -50); ctx.lineTo(3, -46); ctx.stroke(); }
+    else { ctx.beginPath(); ctx.arc(-5, -48, 2, 0, 7); ctx.arc(6, -48, 2, 0, 7); ctx.fill(); }
+    ctx.fillStyle = GING; ctx.fillRect(-9, hold ? -55 : -53, 7, 2.4); ctx.fillRect(2, hold ? -55 : -53, 7, 2.4);
+    // nose + moustache
+    ctx.fillStyle = '#d9a98c'; ctx.beginPath(); ctx.ellipse(1, -42, 3.5, 3, 0, 0, 7); ctx.fill();
+    // mouth: smile while climbing, O when crashing, calm line otherwise
+    ctx.strokeStyle = INK; ctx.lineWidth = 1.8; ctx.beginPath();
+    if (sq) { ctx.arc(1, -35, 2.6, 0, 7); } else if (hold) { ctx.arc(1, -38, 5, 0.25, Math.PI - 0.25); } else { ctx.moveTo(-3, -35); ctx.quadraticCurveTo(1, -33.5, 5, -35); }
+    ctx.stroke();
+    // tea glass in a metal holder
+    ctx.fillStyle = SKIN; ctx.beginPath(); ctx.arc(17, -14, 4, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(200,120,60,.85)'; ctx.fillRect(16, -27, 9, 11);
+    ctx.fillStyle = '#b8b8c0'; ctx.fillRect(15, -20, 11, 8); ctx.fillRect(25, -19, 3, 5);
+    // carpet
+    ctx.fillStyle = RED;
+    ctx.beginPath(); ctx.moveTo(-40, wave(0)); ctx.quadraticCurveTo(-10, wave(1) - 4, 18, wave(2)); ctx.lineTo(40, wave(3) - 2);
+    ctx.lineTo(40, wave(3) + 8); ctx.quadraticCurveTo(0, wave(2) + 12, -40, wave(0) + 10); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = PAPER; ctx.lineWidth = 1.5; ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(-36, wave(0) + 5); ctx.quadraticCurveTo(0, wave(2) + 6, 36, wave(3) + 3); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = '#e9d9a6'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-40, wave(0) + 2 + i * 2.5); ctx.lineTo(-48 - Math.sin(t * 10 + i) * 3, wave(0) + 2 + i * 3); ctx.stroke(); }
+    // one sock and one slipper
+    ctx.fillStyle = RED; ctx.fillRect(-12, -2, 9, 5); ctx.fillStyle = PAPER; ctx.fillRect(4, -2, 11, 5);
+    ctx.restore();
+  }
+
+  function frame(now) {
+    const t = now / 1000, dt = Math.min(0.033, t - (t0 || t)); t0 = t;
+    step(dt);
+    drawBg(t);
+    buildings.forEach(drawBuilding);
+    drawBench();
+    ctx.fillStyle = '#16161b'; ctx.fillRect(0, ground(), Wd, Hd - ground());
+    items.forEach(i => i.kind === 'cup' ? cupShape(i.x, i.y + Math.sin(t * 3 + i.x) * 3, t) : sockShape(i.x, i.y + Math.sin(t * 4) * 3));
+    rumors.forEach(r => bubble(r.txt, r.x, r.y, r.w, false));
+    if (state !== 'menu') drawCarpet(t);
+    // weight indicator
+    if (state === 'play' || state === 'crash') {
+      ctx.font = '700 12px Manrope, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#9a9aa2';
+      ctx.fillText('сплетни:', 14, 20);
+      for (let i = 0; i < 3; i++) { ctx.fillStyle = i < stuck.length ? RED : '#3a3a44'; ctx.beginPath(); ctx.arc(80 + i * 16, 20, 5, 0, 7); ctx.fill(); }
+    }
+    pops.forEach(p => { ctx.globalAlpha = 1 - p.t; ctx.fillStyle = p.color; ctx.font = '800 14px Unbounded, Arial Black, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(p.txt, p.x, p.y - p.t * 30); });
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  }
+
+  function start() { resize(); reset(); state = 'play'; $('start').hidden = true; $('over').hidden = true; }
+  $('go').addEventListener('click', start);
+  $('again').addEventListener('click', start);
+  reset();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
