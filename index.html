@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<title>Чайная змейка</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700&display=swap">
+<style>
+/* Layout: one-screen game — header score strip, square board, d-pad under it. Single dark look by choice. */
+:root {
+  --night: #141416;
+  --panel: #222228;
+  --line: #33333b;
+  --paper: #f2f1ec;
+  --muted: #9a9aa2;
+  --red: #d62828;
+  --steam: #c9c9cf;
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--night); color: var(--paper); font-family: var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+  box-sizing: border-box; overflow: hidden; touch-action: none;
+  -webkit-user-select: none; user-select: none;
+}
+.app { height: 100%; max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+h1 { font-family: var(--display); font-weight: 800; font-size: 20px; margin: 0; line-height: 1.1; letter-spacing: .01em; }
+h1 span { color: var(--red); }
+.tag { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.scores { display: flex; gap: 14px; font-variant-numeric: tabular-nums; text-align: right; }
+.scores b { display: block; font-family: var(--display); font-size: 20px; }
+.scores small { font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.board { position: relative; width: 100%; aspect-ratio: 1 / 1; max-width: 100%; border-radius: 14px; background: var(--panel);
+  box-shadow: inset 0 0 0 2px var(--line); overflow: hidden; flex-shrink: 1; min-height: 0; }
+canvas { width: 100%; height: 100%; display: block; }
+.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: color-mix(in srgb, var(--night) 82%, transparent); text-align: center; padding: 20px; }
+.overlay h2 { font-family: var(--display); font-weight: 800; font-size: 28px; margin: 0; text-wrap: balance; }
+.overlay p { margin: 0; color: var(--muted); font-size: 15px; max-width: 28ch; line-height: 1.45; }
+.overlay .big { font-family: var(--display); font-size: 42px; color: var(--paper); }
+.btn { font: 700 16px var(--body); background: var(--paper); color: var(--night); border: 0; border-radius: 999px; padding: 14px 28px; cursor: pointer; margin-top: 6px; }
+.btn:focus-visible, .pad button:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; }
+.pad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(2, 56px); gap: 8px; justify-content: center; }
+.pad button { background: var(--panel); color: var(--paper); border: 2px solid var(--line); border-radius: 14px; font-size: 22px; cursor: pointer; touch-action: none; }
+.pad button:active { background: var(--line); }
+.pad .up { grid-column: 2; grid-row: 1; } .pad .left { grid-column: 1; grid-row: 2; } .pad .down { grid-column: 2; grid-row: 2; } .pad .right { grid-column: 3; grid-row: 2; }
+.legend { display: flex; justify-content: center; gap: 16px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+@media (max-height: 640px) { .pad { grid-template-rows: repeat(2, 46px); } .legend { display: none; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Чайная<br>змейка<span>.</span></h1>
+      <div class="tag">от это_нормально</div>
+    </div>
+    <div class="scores">
+      <div><small>Чаёв</small><b id="score">0</b></div>
+      <div><small>Рекорд</small><b id="best">0</b></div>
+    </div>
+  </header>
+
+  <div class="board" id="board">
+    <canvas id="cv" width="600" height="600" aria-label="Игровое поле"></canvas>
+    <div class="overlay" id="startScreen">
+      <h2>Собери весь чай,<br>пока не остыл</h2>
+      <p>Свайп или стрелки. Красный носок — бонус +3. В себя и в стену — нельзя.</p>
+      <button class="btn" id="startBtn">Играть</button>
+    </div>
+    <div class="overlay" id="overScreen" hidden>
+      <div class="big" id="finalScore">0</div>
+      <h2>Чай остыл.</h2>
+      <p id="overText">Это нормально. Заварим ещё?</p>
+      <button class="btn" id="againBtn">Ещё кружку</button>
+    </div>
+  </div>
+
+  <div class="pad" aria-label="Управление">
+    <button class="up" data-dir="up" aria-label="Вверх">▲</button>
+    <button class="left" data-dir="left" aria-label="Влево">◀</button>
+    <button class="down" data-dir="down" aria-label="Вниз">▼</button>
+    <button class="right" data-dir="right" aria-label="Вправо">▶</button>
+  </div>
+  <div class="legend"><span><i style="background:var(--paper)"></i>кружка чая +1</span><span><i style="background:var(--red)"></i>носок +3</span></div>
+</div>
+
+<script>
+(() => {
+  const tg = window.Telegram && window.Telegram.WebApp;
+  if (tg) { try { tg.ready(); tg.expand(); tg.setHeaderColor && tg.setHeaderColor('#141416'); tg.setBackgroundColor && tg.setBackgroundColor('#141416'); } catch (e) {} }
+  const haptic = (t) => { try { tg && tg.HapticFeedback && (t === 'bad' ? tg.HapticFeedback.notificationOccurred('error') : tg.HapticFeedback.impactOccurred(t)); } catch (e) {} };
+
+  const N = 18, cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  const $ = (id) => document.getElementById(id);
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const C = { panel: css('--panel'), line: css('--line'), paper: css('--paper'), red: css('--red'), steam: css('--steam'), night: css('--night') };
+
+  let snake, dir, nextDir, food, sock, score, best = 0, tickMs, timer = null, alive = false, frame = 0;
+
+  // best score: Telegram CloudStorage when available, else localStorage
+  const loadBest = () => {
+    try {
+      if (tg && tg.CloudStorage) { tg.CloudStorage.getItem('best', (e, v) => { if (!e && v) { best = +v || 0; $('best').textContent = best; } }); }
+    } catch (e) {}
+    try { best = Math.max(best, +(localStorage.getItem('tea_snake_best') || 0)); } catch (e) {}
+    $('best').textContent = best;
+  };
+  const saveBest = () => {
+    try { localStorage.setItem('tea_snake_best', String(best)); } catch (e) {}
+    try { tg && tg.CloudStorage && tg.CloudStorage.setItem('best', String(best)); } catch (e) {}
+  };
+
+  const free = () => {
+    while (true) {
+      const p = { x: Math.floor(Math.random() * N), y: Math.floor(Math.random() * N) };
+      if (!snake.some(s => s.x === p.x && s.y === p.y) && !(food && food.x === p.x && food.y === p.y)) return p;
+    }
+  };
+
+  function reset() {
+    snake = [{ x: 8, y: 9 }, { x: 7, y: 9 }, { x: 6, y: 9 }];
+    dir = nextDir = { x: 1, y: 0 };
+    score = 0; tickMs = 210; food = null; food = free(); sock = null;
+    $('score').textContent = 0;
+  }
+
+  function start() {
+    reset(); alive = true;
+    $('startScreen').hidden = true; $('overScreen').hidden = true;
+    clearTimeout(timer); loop();
+  }
+
+  function loop() {
+    if (!alive) return;
+    step(); draw();
+    timer = setTimeout(loop, tickMs);
+  }
+
+  function step() {
+    if (nextDir.x !== -dir.x || nextDir.y !== -dir.y) dir = nextDir;
+    const h = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+    if (h.x < 0 || h.y < 0 || h.x >= N || h.y >= N || snake.some(s => s.x === h.x && s.y === h.y)) return gameOver();
+    snake.unshift(h);
+    let grew = false;
+    if (h.x === food.x && h.y === food.y) { score += 1; grew = true; food = free(); haptic('light'); }
+    if (sock && h.x === sock.x && h.y === sock.y) { score += 3; grew = true; sock = null; haptic('medium'); snake.push({ ...snake[snake.length - 1] }, { ...snake[snake.length - 1] }); }
+    if (!grew) snake.pop();
+    if (grew) { $('score').textContent = score; tickMs = Math.max(110, 210 - score * 1.5); }
+    if (!sock && Math.random() < 0.012) { sock = free(); sock.ttl = 60; }
+    if (sock && --sock.ttl <= 0) sock = null;
+    frame++;
+  }
+
+  const OVER = ['Это нормально. Заварим ещё?', 'Бывает. Главное — пить чай.', 'Ничего, чайник ещё горячий.', 'Отдохни и попробуй снова.'];
+  function gameOver() {
+    alive = false; haptic('bad');
+    if (score > best) { best = score; saveBest(); $('best').textContent = best; $('overText').textContent = 'Новый рекорд! И это тоже нормально.'; }
+    else $('overText').textContent = OVER[Math.floor(Math.random() * OVER.length)];
+    $('finalScore').textContent = score;
+    $('overScreen').hidden = false; draw();
+  }
+
+  function cup(cx, cy, s) {
+    ctx.fillStyle = C.paper; ctx.strokeStyle = C.night; ctx.lineWidth = s * 0.07;
+    ctx.beginPath(); ctx.moveTo(cx - s * .32, cy - s * .2); ctx.lineTo(cx + s * .32, cy - s * .2); ctx.lineTo(cx + s * .25, cy + s * .32); ctx.lineTo(cx - s * .25, cy + s * .32); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = C.paper; ctx.lineWidth = s * .08; ctx.beginPath(); ctx.arc(cx + s * .36, cy + s * .02, s * .12, -1.3, 1.3); ctx.stroke();
+    ctx.strokeStyle = C.steam; ctx.lineWidth = s * .05;
+    for (let i = -1; i <= 1; i++) { const ph = frame * .25 + i; ctx.beginPath(); ctx.moveTo(cx + i * s * .12, cy - s * .28);
+      ctx.quadraticCurveTo(cx + i * s * .12 + Math.sin(ph) * s * .08, cy - s * .38, cx + i * s * .12, cy - s * .48); ctx.stroke(); }
+  }
+  function sockShape(cx, cy, s) {
+    ctx.fillStyle = C.red;
+    ctx.beginPath(); ctx.roundRect(cx - s * .18, cy - s * .38, s * .32, s * .5, s * .08); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(cx - s * .18, cy + s * .02, s * .52, s * .26, s * .13); ctx.fill();
+    ctx.fillStyle = C.paper; ctx.fillRect(cx - s * .18, cy - s * .38, s * .32, s * .08);
+  }
+
+  function draw() {
+    const W = cv.width, s = W / N;
+    ctx.fillStyle = C.panel; ctx.fillRect(0, 0, W, W);
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+    for (let i = 1; i < N; i++) { ctx.beginPath(); ctx.moveTo(i * s, 0); ctx.lineTo(i * s, W); ctx.moveTo(0, i * s); ctx.lineTo(W, i * s); ctx.stroke(); }
+    if (food) cup(food.x * s + s / 2, food.y * s + s / 2 + s * .06, s);
+    if (sock && (sock.ttl > 15 || frame % 2)) sockShape(sock.x * s + s / 2, sock.y * s + s / 2, s);
+    snake.forEach((p, i) => {
+      ctx.fillStyle = C.paper; const pad = i === 0 ? 1.5 : 3;
+      ctx.beginPath(); ctx.roundRect(p.x * s + pad, p.y * s + pad, s - pad * 2, s - pad * 2, i === 0 ? s * .32 : s * .2); ctx.fill();
+    });
+    if (snake.length) { // eyes on the head, one bigger than the other
+      const h = snake[0], cx = h.x * s + s / 2, cy = h.y * s + s / 2, px = -dir.y, py = dir.x;
+      ctx.fillStyle = C.night;
+      ctx.beginPath(); ctx.arc(cx + dir.x * s * .12 + px * s * .2, cy + dir.y * s * .12 + py * s * .2, s * .07, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + dir.x * s * .12 - px * s * .2, cy + dir.y * s * .12 - py * s * .2, s * .11, 0, 7); ctx.fill();
+    }
+  }
+
+  const DIRS = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
+  const turn = (name) => { const d = DIRS[name]; if (d) nextDir = d; };
+  addEventListener('keydown', (e) => {
+    const k = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' }[e.code];
+    if (k) { e.preventDefault(); if (!alive && !$('startScreen').hidden) start(); turn(k); }
+    if ((e.code === 'Space' || e.code === 'Enter') && !alive) { e.preventDefault(); start(); }
+  });
+  document.querySelectorAll('.pad button').forEach(b => b.addEventListener('pointerdown', (e) => { e.preventDefault(); turn(b.dataset.dir); haptic('light'); }));
+  let t0 = null;
+  $('board').addEventListener('pointerdown', (e) => { t0 = { x: e.clientX, y: e.clientY }; });
+  $('board').addEventListener('pointerup', (e) => {
+    if (!t0) return; const dx = e.clientX - t0.x, dy = e.clientY - t0.y; t0 = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
+    turn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  });
+  $('startBtn').addEventListener('click', start);
+  $('againBtn').addEventListener('click', start);
+
+  loadBest(); reset(); draw();
+})();
+</script>
+
+</body>
+</html>
