@@ -64,7 +64,7 @@ canvas { display: block; width: 100%; height: 100%; }
   <header>
     <div>
       <h1>Сосед <span>улетел</span></h1>
-      <div class="tag">Держи палец — ковёр летит вверх. · v13</div>
+      <div class="tag">Держи палец — ковёр летит вверх. · v14</div>
     </div>
     <div class="scores">
       <div><b id="score">0</b><small>метров</small></div>
@@ -165,8 +165,8 @@ canvas { display: block; width: 100%; height: 100%; }
     ctx.font = '700 12px Manrope, sans-serif';
     const w = ctx.measureText(txt).width + 20;
     // gossip comes only from a bench that is on screen ahead of the neighbour
-    const b = benches.find(q => q.x > PX() + 90 && q.x < Wd - 10);
-    if (!b) return;
+    const b = benches.find(q => q.x > PX() + 70 && q.x < Wd + 30);
+    if (!b) { nextR = 0.3; return; }
     const sx = b.x - 10, sy = ground() - 60;
     const ty = y + (Math.random() * 80 - 40);
     const T = 2.5;
@@ -216,12 +216,12 @@ canvas { display: block; width: 100%; height: 100%; }
     nextB -= sp * dt;
     if (nextB <= 0) { addBuilding(Wd + 10); nextB = 250 + Math.random() * 150 - Math.min(50, dist / 150); }
     nextR -= dt;
-    if (nextR <= 0) { addRumor(); nextR = Math.max(2.0, 4.0 - dist / 3000) + Math.random() * 1.5; }
+    if (nextR <= 0) { addRumor(); nextR = Math.max(1.6, 3.0 - dist / 3000) + Math.random() * 1.0; }
 
     benches.forEach(q => q.x -= sp * dt);
     benches = benches.filter(q => q.x > -60);
     const lastB = benches.length ? benches[benches.length - 1].x : 0;
-    if (lastB < Wd + 200) benches.push({ x: Math.max(lastB, Wd) + 380 + Math.random() * 320 });
+    if (lastB < Wd + 200) benches.push({ x: Math.max(lastB, Wd) + 240 + Math.random() * 160 });
     buildings.forEach(b => b.x -= sp * dt);
     buildings = buildings.filter(b => b.x + b.w > -20);
     items.forEach(i => i.x -= sp * dt);
