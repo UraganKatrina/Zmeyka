@@ -134,7 +134,7 @@ canvas { width: 100%; height: 100%; display: block; }
   function reset() {
     snake = [{ x: 8, y: 9 }, { x: 7, y: 9 }, { x: 6, y: 9 }];
     dir = { x: 1, y: 0 }; queue = [];
-    score = 0; tickMs = 270; food = null; food = free(); sock = null;
+    score = 0; tickMs = 330; food = null; food = free(); sock = null;
     $('score').textContent = 0;
   }
 
@@ -161,7 +161,7 @@ canvas { width: 100%; height: 100%; display: block; }
     if (h.x === food.x && h.y === food.y) { score += 1; grew = true; food = free(); haptic('light'); }
     if (sock && h.x === sock.x && h.y === sock.y) { score += 3; grew = true; sock = null; haptic('medium'); snake.push({ ...snake[snake.length - 1] }, { ...snake[snake.length - 1] }); }
     if (!grew) snake.pop();
-    if (grew) { $('score').textContent = score; tickMs = Math.max(150, 270 - score * 1.2); }
+    if (grew) { $('score').textContent = score; tickMs = Math.max(190, 330 - score * 1.0); }
     if (!sock && Math.random() < 0.012) { sock = free(); sock.ttl = 60; }
     if (sock && --sock.ttl <= 0) sock = null;
     frame++;
