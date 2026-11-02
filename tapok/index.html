@@ -64,7 +64,7 @@ canvas { display: block; width: 100%; height: 100%; }
     <canvas id="c"></canvas>
     <div class="overlay" id="start">
       <h2>23:40. Под окном шумят.</h2>
-      <p>Тяни пальцем назад и отпускай. Попал — тапок вернут. Промах — он остался на улице. Красный носок на дереве: +3 и тапок назад.</p>
+      <p>Тяни пальцем назад и отпускай. Попал — тапок вернут. Промах — он остался на улице. С каждым попаданием шумят быстрее и поднимается ветер. Красный носок на дереве: +3 и тапок назад.</p>
       <button id="go">Кидаем</button>
     </div>
     <div class="overlay" id="over" hidden>
@@ -127,16 +127,21 @@ canvas { display: block; width: 100%; height: 100%; }
 
   function reset() {
     score = 0; tapki = 5; targets = []; flying = null; drag = null; pops = []; landed = [];
-    sock = null; spawnT = 0.3; newWind();
+    sock = null; spawnT = 0.6; newWind();
+    // street is already noisy when the game starts
+    for (let i = 0; i < 3; i++) spawn(Wd * (0.35 + i * 0.22));
     $('score').textContent = 0;
   }
-  function newWind() { wind = Math.round((Math.random() * 2 - 1) * Math.min(3, 1 + score / 8)) ; }
+  // no wind for the first 3 hits, then it grows with every hit
+  function newWind() { wind = score < 3 ? 0 : Math.round((Math.random() * 2 - 1) * Math.min(3, 1 + (score - 3) / 5)); }
+  // hit tolerance shrinks with every hit: generous at first, tight later
+  const tol = () => Math.max(3, 24 - score * 1.4);
 
-  function spawn() {
+  function spawn(atX) {
     const k = KINDS[Math.floor(Math.random() * KINDS.length)];
     const dir = Math.random() < 0.5 ? -1 : 1;
-    const sp = (38 + Math.random() * 30 + score * 3.2) * dir;
-    targets.push({ k, x: dir < 0 ? Wd + k.w : -k.w, y: ground(), vx: sp, ph: Math.random() * 6, hit: 0 });
+    const sp = (20 + Math.random() * 18 + score * 3.5) * dir;
+    targets.push({ k, x: atX !== undefined ? atX : (dir < 0 ? Wd + k.w : -k.w), y: ground(), vx: sp, ph: Math.random() * 6, hit: 0 });
   }
 
   function throwIt(vx, vy) {
@@ -311,8 +316,8 @@ canvas { display: block; width: 100%; height: 100%; }
   function step(dt, t) {
     if (state !== 'play') return;
     spawnT -= dt;
-    const maxT = Math.min(4, 2 + Math.floor(score / 6));
-    if (spawnT <= 0 && targets.filter(g => !g.hit).length < maxT) { spawn(); spawnT = Math.max(0.9, 2.6 - score * 0.06); }
+    const maxT = Math.min(6, 4 + Math.floor(score / 6));
+    if (spawnT <= 0 && targets.filter(g => !g.hit).length < maxT) { spawn(); spawnT = Math.max(0.7, 1.4 - score * 0.03); }
     if (!sock && score >= 3 && Math.random() < dt * 0.06) sock = { x: Wd - 70 + (Math.random() * 40 - 20), y: ground() - 150 + (Math.random() * 30 - 15), t: 0 };
     if (sock) { sock.t += dt; if (sock.t > 8) sock = null; }
     targets.forEach(g => { if (g.hit) g.hit += dt * 1.6; else g.x += g.vx * dt; });
@@ -324,7 +329,7 @@ canvas { display: block; width: 100%; height: 100%; }
       let hitSomething = false;
       for (const g of targets) {
         if (g.hit) continue;
-        if (Math.abs(f.x - g.x) < g.k.w / 2 + 3 && f.y > g.y - g.k.h && f.y < g.y + 4) {
+        if (Math.abs(f.x - g.x) < g.k.w / 2 + tol() && f.y > g.y - g.k.h - tol() * 0.7 && f.y < g.y + 6) {
           g.hit = 0.01; score += 1; tapki += 1; hitSomething = true;
           addPop('ТИШИНА.', g.x, g.y - g.k.h - 30, PAPER, 18); haptic('medium'); break;
         }
