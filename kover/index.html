@@ -161,7 +161,12 @@ canvas { display: block; width: 100%; height: 100%; }
 
   function addRumor() {
     const tier = dist < 600 ? 0 : dist < 1500 ? (Math.random() < 0.5 ? 0 : 1) : (Math.random() < 0.4 ? 1 : 2);
-    const pool = RUMORS[tier], txt = pool[Math.floor(Math.random() * pool.length)];
+    // never repeat a phrase that is already flying or stuck on the carpet
+    const busy = new Set([...stuck.map(q => q.txt), ...rumors.filter(q => !q.stuck).map(q => q.txt)]);
+    let pool = RUMORS[tier].filter(q => !busy.has(q));
+    if (!pool.length) pool = RUMORS.flat().filter(q => !busy.has(q));
+    if (!pool.length) return false;
+    const txt = pool[Math.floor(Math.random() * pool.length)];
     ctx.font = '700 12px Manrope, sans-serif';
     const w = ctx.measureText(txt).width + 20;
     // gossip comes only from a bench that is on screen ahead of the neighbour
@@ -240,7 +245,7 @@ canvas { display: block; width: 100%; height: 100%; }
     for (const r of rumors) {
       if (r.stuck) continue;
       if (Math.abs(r.x + r.w / 2 - cx) < r.w / 2 - 6 && Math.abs(r.y - cy) < 16) {
-        r.stuck = true; stuck.push({ txt: r.txt, t: 0 }); haptic('medium');
+        r.stuck = true; if (stuck.some(q => q.txt === r.txt)) continue; stuck.push({ txt: r.txt, t: 0 }); haptic('medium');
         pops.push({ txt: 'прилипло!', x: cx, y: cy - 50, t: 0, color: RED });
         if (stuck.length >= 4) return crash('сплетни перевесили');
       }
