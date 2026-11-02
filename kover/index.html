@@ -64,7 +64,7 @@ canvas { display: block; width: 100%; height: 100%; }
   <header>
     <div>
       <h1>Сосед <span>улетел</span></h1>
-      <div class="tag">Держи палец — ковёр летит вверх. · v9</div>
+      <div class="tag">Держи палец — ковёр летит вверх. · v10</div>
     </div>
     <div class="scores">
       <div><b id="score">0</b><small>метров</small></div>
@@ -129,7 +129,7 @@ canvas { display: block; width: 100%; height: 100%; }
 
   function reset() {
     y = Hd * 0.4; vy = 0; dist = 0; cups = 0; stuck = []; buildings = []; rumors = []; items = []; pops = [];
-    nextB = 320; nextR = 3.5; shake = 0; benchX = Wd + 40; crashT = 0;
+    nextB = 320; nextR = 3.5; shake = 0; benchX = Wd - 64; crashT = 0;
     $('score').textContent = 0;
   }
   const speed = () => 95 + Math.min(75, dist * 0.04);
@@ -157,11 +157,10 @@ canvas { display: block; width: 100%; height: 100%; }
     const txt = RUMORS[Math.floor(Math.random() * RUMORS.length)];
     ctx.font = '700 12px Manrope, sans-serif';
     const w = ctx.measureText(txt).width + 20;
-    const sx = Wd + 20, sy = ground() - 30;
+    const sx = benchX - 10, sy = ground() - 60;
     const ty = y + (Math.random() * 80 - 40);
     const T = 2.5;
     rumors.push({ txt, w, x: sx, y: sy, vx: (PX() - sx) / T - speed() * 0.15, vy: (ty - sy) / T, stuck: false });
-    benchX = Wd - 70;
   }
 
   function hitRect(cx, cy, r, x0, y0, x1, y1) {
@@ -208,7 +207,6 @@ canvas { display: block; width: 100%; height: 100%; }
     if (nextB <= 0) { addBuilding(Wd + 10); nextB = 250 + Math.random() * 150 - Math.min(50, dist / 150); }
     nextR -= dt;
     if (nextR <= 0) { addRumor(); nextR = Math.max(2.0, 4.0 - dist / 3000) + Math.random() * 1.5; }
-    benchX -= sp * dt * 0.4;
 
     buildings.forEach(b => b.x -= sp * dt);
     buildings = buildings.filter(b => b.x + b.w > -20);
@@ -288,14 +286,19 @@ canvas { display: block; width: 100%; height: 100%; }
       cl.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(b.x - 58 + i * 26, b.lineY, 14, i % 2 ? 18 : 14); });
     }
   }
-  function drawBench() {
-    if (benchX < -80) return;
-    const x = benchX, gy = ground();
-    ctx.fillStyle = '#4a4a56'; ctx.fillRect(x - 34, gy - 16, 68, 5); ctx.fillRect(x - 30, gy - 11, 4, 11); ctx.fillRect(x + 26, gy - 11, 4, 11);
-    [-16, 14].forEach((dx, i) => {
-      ctx.fillStyle = '#5a5a66'; rr(x + dx - 11, gy - 40, 22, 26, 8); ctx.fill();
-      ctx.fillStyle = '#d8d6ce'; ctx.beginPath(); ctx.arc(x + dx, gy - 48, 9, 0, 7); ctx.fill();
-      ctx.fillStyle = i ? RED : '#8a8a94'; ctx.beginPath(); ctx.arc(x + dx, gy - 51, 10, Math.PI, 0); ctx.fill(); // headscarf
+  // two gossiping grannies walk along the street after the neighbour, always on screen
+  function drawBench(t) {
+    const gy = ground(), walking = state === 'play';
+    [[-18, 0], [14, 1]].forEach(([dx, k]) => {
+      const x = benchX + dx, ph = t * 9 + k * 1.7, step = walking ? Math.sin(ph) : 0, bob = walking ? Math.abs(Math.sin(ph)) * 2 : 0;
+      ctx.strokeStyle = '#3a3a44'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x - 3, gy - 14); ctx.lineTo(x - 3 + step * 6, gy - 1); ctx.moveTo(x + 3, gy - 14); ctx.lineTo(x + 3 - step * 6, gy - 1); ctx.stroke();
+      ctx.fillStyle = '#5a5a66'; rr(x - 12, gy - 44 - bob, 24, 32, 9); ctx.fill();
+      ctx.fillStyle = '#d8d6ce'; ctx.beginPath(); ctx.arc(x, gy - 52 - bob, 9, 0, 7); ctx.fill();
+      ctx.fillStyle = k ? RED : '#8a8a94'; ctx.beginPath(); ctx.arc(x, gy - 55 - bob, 10, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(x - 3, gy - 52 - bob, 1.3, 0, 7); ctx.fill();
+      // bag swinging on the first granny
+      if (!k) { ctx.fillStyle = '#7a6a50'; rr(x - 18, gy - 30 - bob + step * 2, 9, 11, 3); ctx.fill(); }
     });
   }
   function drawCarpet(t) {
@@ -357,7 +360,7 @@ canvas { display: block; width: 100%; height: 100%; }
     step(dt);
     drawBg(t);
     buildings.forEach(drawBuilding);
-    drawBench();
+    drawBench(t);
     ctx.fillStyle = '#16161b'; ctx.fillRect(0, ground(), Wd, Hd - ground());
     // gentle float with a fixed phase per item (phase from x made cups jitter while scrolling)
     items.forEach(i => i.kind === 'cup' ? cupShape(i.x, i.y, t) : sockShape(i.x, i.y));
