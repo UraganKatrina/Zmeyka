@@ -229,7 +229,8 @@ canvas { display: block; width: 100%; height: 100%; }
       }
     }
     for (const it of items) {
-      if (Math.hypot(it.x - cx, it.y - cy) < 28) {
+      // pick up anything touching the neighbour or the carpet: a box from the cap down to the carpet edge, with a generous margin
+      if (it.x > cx - 52 && it.x < cx + 52 && it.y > cy - 80 && it.y < cy + 22) {
         it.got = true;
         if (it.kind === 'cup') { cups++; haptic('light'); pops.push({ txt: '+5', x: it.x, y: it.y - 16, t: 0, color: PAPER }); }
         else { stuck = []; haptic('heavy'); pops.push({ txt: 'сплетни стряхнуты', x: it.x, y: it.y - 16, t: 0, color: RED }); }
