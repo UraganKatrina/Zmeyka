@@ -148,8 +148,8 @@ canvas { display: block; width: 100%; height: 100%; }
     const minGap = Hd * 0.42, h = Hd * (0.12 + Math.random() * 0.28);
     const hasLine = Math.random() < Math.min(0.35, 0.03 + dist / 8000);
     buildings.push({ x, w: 70 + Math.random() * 50, h, lineY: hasLine ? Math.max(70, ground() - h - minGap - Math.random() * 60) : null, win: Math.floor(Math.random() * 1000) });
-    if (Math.random() < 0.7) items.push({ kind: 'cup', x: x + 40, y: ground() - h - 40 - Math.random() * 90 });
-    if (Math.random() < 0.12) items.push({ kind: 'sock', x: x + 110, y: Hd * (0.15 + Math.random() * 0.3) });
+    if (Math.random() < 0.7) items.push({ kind: 'cup', x: x + 40, y: ground() - h - 40 - Math.random() * 90, ph: Math.random() * 6.28 });
+    if (Math.random() < 0.12) items.push({ kind: 'sock', x: x + 110, y: Hd * (0.15 + Math.random() * 0.3), ph: Math.random() * 6.28 });
   }
 
   function addRumor() {
@@ -355,7 +355,8 @@ canvas { display: block; width: 100%; height: 100%; }
     buildings.forEach(drawBuilding);
     drawBench();
     ctx.fillStyle = '#16161b'; ctx.fillRect(0, ground(), Wd, Hd - ground());
-    items.forEach(i => i.kind === 'cup' ? cupShape(i.x, i.y + Math.sin(t * 3 + i.x) * 3, t) : sockShape(i.x, i.y + Math.sin(t * 4) * 3));
+    // gentle float with a fixed phase per item (phase from x made cups jitter while scrolling)
+    items.forEach(i => i.kind === 'cup' ? cupShape(i.x, i.y + Math.sin(t * 2.2 + i.ph) * 3, t) : sockShape(i.x, i.y + Math.sin(t * 2.6 + i.ph) * 3));
     rumors.forEach(r => bubble(r.txt, r.x, r.y, r.w, false));
     if (state !== 'menu') drawCarpet(t);
     // weight indicator
