@@ -6,84 +6,232 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <title>Игротека это_нормально</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="../common/eto.css">
 <style>
-/* Game hub: header with logo, then one card per game. Single dark look to match the games. */
-:root {
-  --night: #141416; --panel: #1e1e24; --line: #2c2c34; --paper: #f2f1ec; --muted: #9a9aa2; --red: #d62828;
-  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
-  --body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
-  color-scheme: dark;
-}
+/* Hub: the hero greets you in the header (the one memorable moment), everything below stays quiet.
+   Tabs: games / records wall (as the yard newspaper) / skins. */
 html, body { margin: 0; }
 body {
-  background: var(--night); color: var(--paper); font-family: var(--body);
-  padding: 16px max(16px, env(safe-area-inset-right)) 32px max(16px, env(safe-area-inset-left));
+  background: var(--eto-night); color: var(--eto-paper); font-family: var(--eto-body);
+  padding: 12px max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left));
   -webkit-tap-highlight-color: transparent;
 }
 .wrap { max-width: 480px; margin: 0 auto; }
-header { display: flex; align-items: center; gap: 14px; margin: 4px 0 22px; }
-header img { width: 56px; height: 56px; border-radius: 50%; }
-h1 { font-family: var(--display); font-weight: 800; font-size: 22px; line-height: 1.1; margin: 0; }
-h1 span { color: var(--red); }
-.sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
-.list { display: grid; gap: 14px; }
-a.card { display: block; text-decoration: none; color: inherit; background: var(--panel); border: 1px solid var(--line);
-  border-radius: 18px; overflow: hidden; transition: transform .08s; }
-a.card:active { transform: scale(.98); }
-.thumb { aspect-ratio: 16 / 9; width: 100%; display: block; object-fit: cover; background: #111; }
-.classic { aspect-ratio: 16 / 9; background: #9bad5e; display: grid; place-items: center; }
-.classic svg { width: 62%; height: auto; }
-.info { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; }
-.info b { font-family: var(--display); font-weight: 800; font-size: 16px; display: block; }
-.info small { color: var(--muted); font-size: 13px; display: block; margin-top: 3px; }
-.play { flex: none; background: var(--paper); color: var(--night); font-weight: 700; font-size: 14px; padding: 9px 16px; border-radius: 999px; }
-.soon { opacity: .55; pointer-events: none; }
-.soon .play { background: var(--line); color: var(--muted); }
-.best { color: var(--red); font-weight: 700; }
-footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 26px; line-height: 1.5; }
-footer a { color: var(--paper); }
+
+/* header */
+.top { display: grid; grid-template-columns: 92px 1fr auto; align-items: center; gap: 12px; margin-bottom: 14px; }
+.hero { width: 92px; height: 92px; }
+.hero .steam path { animation: steam 2.6s ease-in-out infinite; transform-origin: center bottom; }
+.hero .steam path:nth-child(2) { animation-delay: .5s; }
+.hero .steam path:nth-child(3) { animation-delay: 1s; }
+.hero .lid { animation: blink 5s infinite; transform-origin: center; transform-box: fill-box; }
+@keyframes steam { 0%, 100% { opacity: .25; transform: translateY(2px); } 50% { opacity: .9; transform: translateY(-3px); } }
+@keyframes blink { 0%, 94%, 100% { transform: scaleY(0); } 96% { transform: scaleY(1); } }
+h1 { font: 800 24px/1.05 var(--eto-display); margin: 0; letter-spacing: -.01em; }
+h1 i { font-style: normal; color: var(--eto-red); }
+.hello { color: var(--eto-muted); font-size: 13px; margin-top: 5px; line-height: 1.35; }
+.wallet { display: inline-flex; align-items: center; gap: 2px; font: 800 17px var(--eto-display); background: var(--eto-panel); border-radius: var(--eto-r-pill); padding: 8px 12px 8px 10px; box-shadow: inset 0 0 0 1.5px var(--eto-line); }
+
+/* daily task */
+.task { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; background: var(--eto-panel); border-radius: var(--eto-r-lg); padding: 14px 16px; margin-bottom: 16px; box-shadow: inset 0 0 0 1.5px var(--eto-line); }
+.task small { color: var(--eto-muted); font-size: 12px; grid-column: 1 / -1; }
+.task b { font-weight: 800; font-size: 15px; line-height: 1.3; }
+.task .rew { font: 800 14px var(--eto-display); display: inline-flex; align-items: center; }
+.task.done { box-shadow: inset 0 0 0 1.5px var(--eto-red); }
+.task.done b { color: var(--eto-muted); text-decoration: line-through; text-decoration-color: var(--eto-red); }
+
+/* tabs */
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: var(--eto-panel); padding: 4px; border-radius: var(--eto-r-pill); margin-bottom: 16px; }
+.tabs button { font: 700 14px var(--eto-body); color: var(--eto-muted); background: none; border: 0; border-radius: var(--eto-r-pill); padding: 10px 6px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--eto-paper); color: var(--eto-night); }
+.tabs button:focus-visible { outline: 2px solid var(--eto-red); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+/* games */
+.games { display: grid; gap: 14px; }
+a.game { display: block; text-decoration: none; color: inherit; background: var(--eto-panel); border-radius: var(--eto-r-lg); overflow: hidden; }
+a.game:active { transform: scale(.985); }
+a.game:focus-visible { outline: 3px solid var(--eto-red); outline-offset: 3px; }
+.game img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.game .meta { display: flex; align-items: center; gap: 12px; padding: 12px 14px 14px; }
+.game .meta div { flex: 1; min-width: 0; }
+.game b { display: block; font: 800 16px var(--eto-display); }
+.game small { color: var(--eto-muted); font-size: 13px; }
+.game .rec { color: var(--eto-paper); font-weight: 700; }
+.game .go { flex: none; font: 700 14px var(--eto-body); background: var(--eto-paper); color: var(--eto-night); border-radius: var(--eto-r-pill); padding: 9px 16px; }
+
+/* records wall = the yard newspaper */
+.paper { background: var(--eto-news); color: #1e1e20; border-radius: 6px; padding: 18px 16px 16px; transform: rotate(-.6deg); }
+.paper h2 { font: 800 22px var(--eto-display); text-align: center; margin: 0; padding-bottom: 8px; border-bottom: 4px double #1e1e20; }
+.paper .issue { text-align: center; color: #5a5a5c; font-size: 12px; margin: 6px 0 14px; }
+.rec-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid #cfcdc4; }
+.rec-row:last-of-type { border-bottom: 0; }
+.rec-row .name { font-weight: 800; font-size: 14px; }
+.rec-row .num { font: 800 30px/1 var(--eto-display); color: var(--eto-red); text-align: right; }
+.rec-row .unit { color: #5a5a5c; font-size: 12px; }
+.rec-row button { grid-column: 1 / -1; justify-self: start; margin-top: 8px; font: 700 13px var(--eto-body); background: #1e1e20; color: var(--eto-news); border: 0; border-radius: var(--eto-r-pill); padding: 8px 14px; cursor: pointer; }
+.rec-row button:disabled { opacity: .35; }
+.section-h { font: 800 16px var(--eto-display); margin: 26px 0 10px; }
+.ach { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.ach div { background: var(--eto-panel); border-radius: var(--eto-r-md); padding: 12px; font-size: 12px; color: var(--eto-muted); line-height: 1.35; }
+.ach div b { display: block; color: var(--eto-paper); font-size: 13px; margin-bottom: 3px; }
+.ach div.got { box-shadow: inset 0 0 0 1.5px var(--eto-red); }
+.ach div:not(.got) b { color: var(--eto-muted); }
+.note { color: var(--eto-muted); font-size: 12px; line-height: 1.45; margin-top: 14px; }
+
+/* skins */
+.slot-h { font: 800 15px var(--eto-display); margin: 18px 0 8px; }
+.slot-h:first-child { margin-top: 0; }
+.skins { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.skin { background: var(--eto-panel); border: 0; border-radius: var(--eto-r-md); padding: 12px; text-align: left; color: var(--eto-paper); font: 600 13px var(--eto-body); cursor: pointer; display: grid; gap: 8px; }
+.skin:focus-visible { outline: 3px solid var(--eto-red); outline-offset: 2px; }
+.skin .sw { height: 34px; border-radius: 10px; }
+.skin .st { color: var(--eto-muted); font-size: 12px; display: inline-flex; align-items: center; }
+.skin.on { box-shadow: inset 0 0 0 2px var(--eto-paper); }
+.skin.on .st { color: var(--eto-paper); }
+
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--eto-paper); color: var(--eto-night); font: 700 14px var(--eto-body); border-radius: var(--eto-r-pill); padding: 10px 18px; z-index: 40; }
+footer { text-align: center; color: var(--eto-muted); font-size: 12px; margin-top: 28px; }
+@media (prefers-reduced-motion: reduce) { .hero .steam path, .hero .lid { animation: none; } }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <img src="logo.jpg" alt="">
+  <header class="top">
+    <svg class="hero" viewBox="0 0 92 92" role="img" aria-label="Герой это_нормально с чашкой чая">
+      <path d="M38 14 q1 -9 9 -8" fill="none" stroke="#f2f1ec" stroke-width="3" stroke-linecap="round"/>
+      <rect x="14" y="14" width="50" height="52" rx="13" fill="#f2f1ec"/>
+      <circle cx="29" cy="40" r="3" fill="#141416"/>
+      <circle cx="48" cy="39" r="6.5" fill="#141416"/><circle cx="50" cy="37" r="1.8" fill="#f2f1ec"/>
+      <rect class="lid" x="40" y="32" width="15" height="14" rx="6" fill="#f2f1ec"/>
+      <path d="M23 30 h10 M41 28 h14" stroke="#141416" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M31 55 q7 4 14 -1" fill="none" stroke="#141416" stroke-width="2.6" stroke-linecap="round"/>
+      <g class="steam" fill="none" stroke="#c9c9cf" stroke-width="2" stroke-linecap="round">
+        <path d="M68 58 q3 -4 0 -8"/><path d="M74 58 q3 -4 0 -8"/><path d="M80 58 q3 -4 0 -8"/>
+      </g>
+      <path d="M64 62 h20 l-3 22 h-14 z" fill="#d62828"/>
+      <path d="M84 66 h3 a5 5 0 0 1 0 10 h-4" fill="none" stroke="#d62828" stroke-width="3"/>
+    </svg>
     <div>
-      <h1>Игротека<span>.</span></h1>
-      <div class="sub">от это_нормально · 5 минут для себя</div>
+      <h1>Игротека<i>.</i></h1>
+      <div class="hello" id="hello">5 минут для себя — это нормально.</div>
     </div>
+    <div class="wallet" title="Твои чашки"><span class="eto-cup" aria-hidden="true"></span><span id="cups">0</span></div>
   </header>
 
-  <div class="list">
-    <a class="card" href="../">
-      <img class="thumb" src="zmeyka.jpg" alt="">
-      <div class="info"><div><b>Чайная змейка</b><small>Собери чай, пока не остыл <span class="best" data-key="tea_snake_best"></span></small></div><span class="play">Играть</span></div>
+  <section class="task" id="task" aria-live="polite">
+    <small>Задание дня</small>
+    <b id="taskText"></b>
+    <span class="rew" id="taskRew"></span>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="games">Игры</button>
+    <button role="tab" aria-selected="false" data-tab="wall">Рекорды</button>
+    <button role="tab" aria-selected="false" data-tab="skins">Скины</button>
+  </nav>
+
+  <section id="games" class="games">
+    <a class="game" href="../" data-g="zmeyka">
+      <img src="zmeyka.jpg" alt="">
+      <div class="meta"><div><b>Чайная змейка</b><small data-best="zmeyka">Собери чай, пока не остыл</small></div><span class="go">Играть</span></div>
     </a>
-    <a class="card" href="../tapok/">
-      <img class="thumb" src="tapok.jpg" alt="">
-      <div class="info"><div><b>Тапок с балкона</b><small>Верни тишину во двор <span class="best" data-key="tapok_best"></span></small></div><span class="play">Играть</span></div>
+    <a class="game" href="../tapok/" data-g="tapok">
+      <img src="tapok.jpg" alt="">
+      <div class="meta"><div><b>Тапок с балкона</b><small data-best="tapok">Верни тишину во двор</small></div><span class="go">Играть</span></div>
     </a>
-    <a class="card" href="../kover/">
-      <img class="thumb" src="kover.jpg" alt="">
-      <div class="info"><div><b>Сосед улетел</b><small>Ковёр-самолёт против сплетен <span class="best" data-key="kover_best"></span></small></div><span class="play">Играть</span></div>
+    <a class="game" href="../kover/" data-g="kover">
+      <img src="kover.jpg" alt="">
+      <div class="meta"><div><b>Сосед улетел</b><small data-best="kover">Ковёр-самолёт против сплетен</small></div><span class="go">Играть</span></div>
     </a>
-  </div>
+  </section>
+
+  <section id="wall" hidden>
+    <div class="paper">
+      <h2>ВЕСТИ ПОДЪЕЗДА</h2>
+      <div class="issue">твои рекорды · обновляется после каждой игры</div>
+      <div id="recs"></div>
+    </div>
+    <p class="note">Нажми «Вызвать друга» — он получит ссылку с твоим рекордом. Откроет игру, побьёт — и получит достижение «Принял вызов». Общая таблица всех игроков появится скоро.</p>
+    <div class="section-h">Достижения</div>
+    <div class="ach" id="ach"></div>
+  </section>
+
+  <section id="skins" hidden>
+    <div id="shop"></div>
+    <p class="note">Чашки дают за каждую игру, за новый рекорд и за задание дня. Скин включается сразу во всех играх.</p>
+  </section>
 
   <footer>Новые игры — в канале «это_нормально»</footer>
 </div>
+
+<script src="../common/eto.js"></script>
 <script>
 (() => {
-  const tg = window.Telegram && window.Telegram.WebApp;
-  try { if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor && tg.setHeaderColor('#141416'); tg.setBackgroundColor && tg.setBackgroundColor('#141416'); } } catch (e) {}
-  // show personal best under each game (same device)
-  document.querySelectorAll('.best').forEach(el => {
-    try { const v = +localStorage.getItem(el.dataset.key) || 0; if (v) el.textContent = '· рекорд ' + v; } catch (e) {}
+  const E = window.ETO, $ = id => document.getElementById(id);
+  try { if (E.inTG) { E.tg.expand(); E.tg.setHeaderColor && E.tg.setHeaderColor('#141416'); E.tg.setBackgroundColor && E.tg.setBackgroundColor('#141416'); } } catch (e) {}
+  try {
+    const u = E.inTG && E.tg.initDataUnsafe && E.tg.initDataUnsafe.user;
+    if (u && u.first_name) $('hello').textContent = `Привет, ${u.first_name}. 5 минут для себя — это нормально.`;
+  } catch (e) {}
+
+  const UNITS = { zmeyka: 'чаёв', tapok: 'попаданий', kover: 'метров' };
+  const toast = (t) => { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 1800); };
+
+  function render() {
+    const S = E.state;
+    $('cups').textContent = S.cups;
+    const q = E.quest();
+    $('task').classList.toggle('done', q.done);
+    $('taskText').textContent = q.text;
+    $('taskRew').innerHTML = q.done ? 'готово' : `+${q.reward}&nbsp;<span class="eto-cup" aria-hidden="true"></span>`;
+
+    document.querySelectorAll('[data-best]').forEach(el => {
+      const g = el.dataset.best, b = E.best(g);
+      if (b) el.innerHTML = `Рекорд: <span class="rec">${b} ${UNITS[g]}</span>`;
+    });
+
+    $('recs').innerHTML = Object.keys(E.GAMES).map(g => {
+      const b = E.best(g);
+      return `<div class="rec-row"><div><div class="name">${E.GAMES[g].title}</div><div class="unit">${b ? UNITS[g] : 'ещё не играл(а)'}</div></div><div class="num">${b || '—'}</div>
+        <button type="button" data-duel="${g}" ${b ? '' : 'disabled'}>Вызвать друга</button></div>`;
+    }).join('');
+    document.querySelectorAll('[data-duel]').forEach(b => b.onclick = () => E.challengeFriend(b.dataset.duel, E.best(b.dataset.duel)));
+
+    $('ach').innerHTML = E.ACH.map(a => `<div class="${S.ach.includes(a.id) ? 'got' : ''}"><b>${a.name}</b>${a.text}</div>`).join('');
+
+    const SLOTS = { snake: 'Змейка', slipper: 'Тапок', carpet: 'Ковёр соседа' };
+    $('shop').innerHTML = Object.keys(SLOTS).map(slot => `<div class="slot-h">${SLOTS[slot]}</div><div class="skins">` +
+      E.SKINS.filter(s => s.slot === slot).map(s => {
+        const own = S.skins.owned.includes(s.id), on = S.skins.on[slot] === s.key;
+        const st = on ? 'надето' : own ? 'надеть' : `<span class="eto-cup" aria-hidden="true"></span>${s.price}`;
+        return `<button type="button" class="skin ${on ? 'on' : ''}" data-skin="${s.id}"><span class="sw" style="background:${s.color}"></span>${s.name}<span class="st">${st}</span></button>`;
+      }).join('') + '</div>').join('');
+    document.querySelectorAll('[data-skin]').forEach(b => b.onclick = () => {
+      const r = E.buy(b.dataset.skin);
+      if (r.bought) { toast('Куплено и надето'); E.haptic('ok'); }
+      else if (r.equipped) { toast('Надето'); E.haptic('light'); }
+      else if (r.need) { toast(`Не хватает ${r.need} чашек`); E.haptic('bad'); }
+    });
+  }
+
+  document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-selected', x === b));
+    ['games', 'wall', 'skins'].forEach(id => $(id).hidden = id !== b.dataset.tab);
+    E.haptic('light');
+    try { sessionStorage.setItem('hubTab', b.dataset.tab); } catch (e) {}
   });
-  document.querySelectorAll('a.card').forEach(a => a.addEventListener('click', () => {
+  try { const t = sessionStorage.getItem('hubTab'); if (t) document.querySelector(`[data-tab="${t}"]`).click(); } catch (e) {}
+
+  document.querySelectorAll('a.game').forEach(a => a.addEventListener('click', () => {
     try { sessionStorage.setItem('fromHub', '1'); } catch (e) {}
-    try { tg && tg.HapticFeedback && tg.HapticFeedback.impactOccurred('light'); } catch (e) {}
+    E.haptic('light');
   }));
+
+  E.on(render);
+  render();
+  addEventListener('pageshow', render);
 })();
 </script>
 </body>

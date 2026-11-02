@@ -7,7 +7,8 @@
 <title>Чайная змейка</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="common/eto.css">
 <style>
 /* Layout: one-screen game — header score strip, square board, d-pad under it. Single dark look by choice. */
 :root {
@@ -43,7 +44,7 @@ h1 span { color: var(--red); }
 .board { position: relative; width: 100%; aspect-ratio: 1 / 1; max-width: 100%; border-radius: 14px; background: var(--panel);
   box-shadow: inset 0 0 0 2px var(--line); overflow: hidden; flex-shrink: 1; min-height: 0; }
 canvas { width: 100%; height: 100%; display: block; }
-.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; overflow-y: auto;
   background: color-mix(in srgb, var(--night) 82%, transparent); text-align: center; padding: 20px; }
 .overlay h2 { font-family: var(--display); font-weight: 800; font-size: 28px; margin: 0; text-wrap: balance; }
 .overlay p { margin: 0; color: var(--muted); font-size: 15px; max-width: 28ch; line-height: 1.45; }
@@ -98,6 +99,7 @@ canvas { width: 100%; height: 100%; display: block; }
   <div class="legend"><span><i style="background:var(--paper)"></i>кружка чая +1</span><span><i style="background:var(--red)"></i>носок +3</span></div>
 </div>
 
+<script src="common/eto.js"></script>
 <script>
 (() => {
   const tg = window.Telegram && window.Telegram.WebApp;
@@ -109,7 +111,7 @@ canvas { width: 100%; height: 100%; display: block; }
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const C = { panel: css('--panel'), line: css('--line'), paper: css('--paper'), red: css('--red'), steam: css('--steam'), night: css('--night') };
 
-  let snake, from = [], dir, queue = [], food, sock, score, best = 0, tickMs, timer = null, alive = false, frame = 0;
+  let snake, from = [], dir, queue = [], socks = 0, food, sock, score, best = 0, tickMs, timer = null, alive = false, frame = 0;
 
   // best score: Telegram CloudStorage when available, else localStorage
   const loadBest = () => {
@@ -134,7 +136,7 @@ canvas { width: 100%; height: 100%; display: block; }
   function reset() {
     snake = [{ x: 8, y: 9 }, { x: 7, y: 9 }, { x: 6, y: 9 }];
     dir = { x: 1, y: 0 }; queue = []; from = [];
-    score = 0; tickMs = 330; food = null; food = free(); sock = null;
+    score = 0; socks = 0; tickMs = 330; food = null; food = free(); sock = null;
     $('score').textContent = 0;
   }
 
@@ -160,7 +162,7 @@ canvas { width: 100%; height: 100%; display: block; }
     snake.unshift(h);
     let grew = false;
     if (h.x === food.x && h.y === food.y) { score += 1; grew = true; food = free(); haptic('light'); }
-    if (sock && h.x === sock.x && h.y === sock.y) { score += 3; grew = true; sock = null; haptic('medium'); snake.push({ ...snake[snake.length - 1] }, { ...snake[snake.length - 1] }); }
+    if (sock && h.x === sock.x && h.y === sock.y) { score += 3; socks++; grew = true; sock = null; haptic('medium'); snake.push({ ...snake[snake.length - 1] }, { ...snake[snake.length - 1] }); }
     if (!grew) snake.pop();
     if (grew) { $('score').textContent = score; tickMs = Math.max(190, 330 - score * 1.0); }
     if (!sock && Math.random() < 0.012) { sock = free(); sock.ttl = 60; }
@@ -174,6 +176,7 @@ canvas { width: 100%; height: 100%; display: block; }
     if (score > best) { best = score; saveBest(); $('best').textContent = best; $('overText').textContent = 'Новый рекорд! И это тоже нормально.'; }
     else $('overText').textContent = OVER[Math.floor(Math.random() * OVER.length)];
     $('finalScore').textContent = score;
+    try { const r = ETO.finish({ game: 'zmeyka', score, socks }); ETO.resultPanel($('overScreen'), 'zmeyka', score, r); if (r.newBest) { best = Math.max(best, score); } } catch (e) {}
     $('overScreen').hidden = false; draw();
   }
 
@@ -207,9 +210,10 @@ canvas { width: 100%; height: 100%; display: block; }
     for (let i = 1; i < N; i++) { ctx.beginPath(); ctx.moveTo(i * s, 0); ctx.lineTo(i * s, W); ctx.moveTo(0, i * s); ctx.lineTo(W, i * s); ctx.stroke(); }
     if (food) cup(food.x * s + s / 2, food.y * s + s / 2 + s * .06, s);
     if (sock && (sock.ttl > 15 || frame % 2)) sockShape(sock.x * s + s / 2, sock.y * s + s / 2, s);
+    const skin = (window.ETO && ETO.skin('snake')) || 'classic', skinCol = skin === 'gold' ? '#e2b94b' : C.paper;
     for (let i = snake.length - 1; i >= 0; i--) {
       const p = pos(i, a);
-      ctx.fillStyle = C.paper; const pad = i === 0 ? 1.5 : 3;
+      ctx.fillStyle = skinCol; const pad = i === 0 ? 1.5 : 3;
       ctx.beginPath(); ctx.roundRect(p.x * s + pad, p.y * s + pad, s - pad * 2, s - pad * 2, i === 0 ? s * .32 : s * .2); ctx.fill();
     }
     if (snake.length) { // eyes on the head, one bigger than the other
@@ -217,6 +221,8 @@ canvas { width: 100%; height: 100%; display: block; }
       ctx.fillStyle = C.night;
       ctx.beginPath(); ctx.arc(cx + dir.x * s * .12 + px * s * .2, cy + dir.y * s * .12 + py * s * .2, s * .07, 0, 7); ctx.fill();
       ctx.beginPath(); ctx.arc(cx + dir.x * s * .12 - px * s * .2, cy + dir.y * s * .12 - py * s * .2, s * .11, 0, 7); ctx.fill();
+      if (skin === 'glasses') { ctx.strokeStyle = C.night; ctx.lineWidth = s * .06; ctx.beginPath(); ctx.moveTo(cx + dir.x * s * .12 + px * s * .2, cy + dir.y * s * .12 + py * s * .2); ctx.lineTo(cx + dir.x * s * .12 - px * s * .2, cy + dir.y * s * .12 - py * s * .2); ctx.stroke(); ctx.lineWidth = s * .05; ctx.beginPath(); ctx.arc(cx + dir.x * s * .12 + px * s * .2, cy + dir.y * s * .12 + py * s * .2, s * .13, 0, 7); ctx.stroke(); ctx.beginPath(); ctx.arc(cx + dir.x * s * .12 - px * s * .2, cy + dir.y * s * .12 - py * s * .2, s * .16, 0, 7); ctx.stroke(); }
+      if (skin === 'scarf' && snake.length > 1) { const n = pos(1, a), mx = (h.x + n.x) / 2 * s + s / 2, my = (h.y + n.y) / 2 * s + s / 2; ctx.fillStyle = '#d62828'; ctx.beginPath(); ctx.roundRect(mx - s * .3, my - s * .3, s * .6, s * .6, s * .15); ctx.fill(); ctx.fillRect(mx - dir.x * s * .5 - s * .08 + px * s * .2, my - dir.y * s * .5 - s * .08 + py * s * .2, s * .16, s * .16); }
     }
   }
 
@@ -268,9 +274,6 @@ canvas { width: 100%; height: 100%; display: block; }
 })();
 </script>
 
-<script>
-// opened from the Igroteka menu: Telegram back button returns to the menu
-(() => { try { const tg = window.Telegram && window.Telegram.WebApp; if (tg && tg.BackButton && sessionStorage.getItem('fromHub')) { const hub = location.pathname.replace(/((tapok|classic|kover)\/)?(index\.html)?$/, '') + 'igroteka/'; tg.BackButton.show(); tg.BackButton.onClick(() => { location.href = hub; }); } } catch (e) {} })();
-</script>
+<script>try { ETO.backButton(); ETO.challengeBanner(document.getElementById('startScreen'), 'zmeyka'); } catch (e) {}</script>
 </body>
 </html>

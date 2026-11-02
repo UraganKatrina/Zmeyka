@@ -1,0 +1,54 @@
+/* это_нормально · общий стиль
+   Ночь, бумага, один красный. Unbounded для заголовков и цифр, Manrope для текста. */
+:root {
+  --eto-night: #141416;
+  --eto-panel: #1e1e24;
+  --eto-line: #2c2c34;
+  --eto-paper: #f2f1ec;
+  --eto-muted: #9a9aa2;
+  --eto-red: #d62828;
+  --eto-news: #ecebe4;
+  --eto-gold: #e2b94b;
+  --eto-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --eto-body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --eto-r-lg: 20px;
+  --eto-r-md: 14px;
+  --eto-r-pill: 999px;
+}
+
+/* buttons */
+.eto-btn {
+  font: 700 15px var(--eto-body); color: var(--eto-night); background: var(--eto-paper);
+  border: 0; border-radius: var(--eto-r-pill); padding: 12px 20px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: transform .08s;
+}
+.eto-btn:active { transform: scale(.96); }
+.eto-btn:focus-visible { outline: 3px solid var(--eto-red); outline-offset: 3px; }
+.eto-btn-red { background: var(--eto-red); color: var(--eto-paper); }
+.eto-btn-ghost { background: transparent; color: var(--eto-paper); box-shadow: inset 0 0 0 2px var(--eto-line); }
+
+/* result block in game-over screens */
+.eto-result { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; max-width: 320px; }
+.eto-earned { display: inline-flex; align-items: center; gap: 8px; font: 800 18px var(--eto-display); color: var(--eto-paper); }
+.eto-badge {
+  font: 700 13px var(--eto-body); color: var(--eto-paper); background: var(--eto-panel);
+  box-shadow: inset 0 0 0 1.5px var(--eto-line); border-radius: var(--eto-r-pill); padding: 7px 14px; text-align: center;
+}
+.eto-badge-red { background: rgba(214, 40, 40, .16); box-shadow: inset 0 0 0 1.5px var(--eto-red); }
+.eto-row { display: flex; gap: 8px; width: 100%; margin-top: 4px; }
+.eto-row .eto-btn { flex: 1; padding: 11px 10px; font-size: 14px; margin: 0; }
+/* games style their own overlay buttons; keep ours on top */
+.eto-result .eto-btn { font: 700 14px var(--eto-body); border-radius: var(--eto-r-pill); }
+.eto-result .eto-btn-red { background: var(--eto-red); color: var(--eto-paper); }
+.eto-result .eto-btn-ghost { background: transparent; color: var(--eto-paper); box-shadow: inset 0 0 0 2px var(--eto-line); }
+
+/* the cup glyph used everywhere for the currency */
+.eto-cup { display: inline-block; width: 20px; height: 15px; flex: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 16'%3E%3Cpath d='M1 1h15l-2 14H3z' fill='%23d62828'/%3E%3Cpath d='M16 4h2.5a3 3 0 0 1 0 6H15' fill='none' stroke='%23d62828' stroke-width='2'/%3E%3C/svg%3E") center / contain no-repeat; vertical-align: -2px; }
+
+/* share-picture modal */
+.eto-modal { position: fixed; inset: 0; z-index: 50; background: rgba(10, 10, 12, .88); display: grid; place-items: center; padding: 16px; }
+.eto-modal-box { max-width: 380px; width: 100%; text-align: center; color: var(--eto-paper); font: 500 14px var(--eto-body); }
+.eto-modal-box img { width: 100%; border-radius: var(--eto-r-md); display: block; margin-bottom: 12px; }
+.eto-modal-box p { color: var(--eto-muted); margin: 0 0 14px; }
+
+@media (prefers-reduced-motion: reduce) { .eto-btn { transition: none; } }

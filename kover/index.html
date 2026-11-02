@@ -7,7 +7,8 @@
 <title>Сосед улетел</title>
 <meta http-equiv="Cache-Control" content="no-cache">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="../common/eto.css">
 <style>
 /* One dusk courtyard scene by choice: HUD strip, full-height play area, newspaper game-over. */
 :root {
@@ -37,7 +38,7 @@ h1 span { color: var(--red); }
 canvas { display: block; width: 100%; height: 100%; }
 .overlay {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 12px; padding: 24px; text-align: center; background: rgba(13,13,16,.8);
+  gap: 10px; padding: 20px; overflow-y: auto; text-align: center; background: rgba(13,13,16,.8);
 }
 .overlay h2 { font-family: var(--display); font-weight: 800; font-size: 24px; margin: 0; text-wrap: balance; }
 .overlay p { margin: 0; color: var(--muted); max-width: 300px; line-height: 1.45; }
@@ -90,6 +91,7 @@ canvas { display: block; width: 100%; height: 100%; }
     </div>
   </div>
 </div>
+<script src="../common/eto.js"></script>
 <script>
 (() => {
   const tg = window.Telegram && window.Telegram.WebApp;
@@ -130,10 +132,10 @@ canvas { display: block; width: 100%; height: 100%; }
   ];
   const ground = () => Hd - 34;
 
-  let state = 'menu', hold = false, y, vy, dist, cups, stuck, buildings, rumors, items, pops, nextB, nextR, shake, t0 = 0, crashT = 0, benches;
+  let state = 'menu', hold = false, y, vy, dist, cups, stuck, buildings, rumors, items, pops, nextB, nextR, shake, t0 = 0, crashT = 0, benches, gossipCrash = false;
 
   function reset() {
-    y = Hd * 0.4; vy = 0; dist = 0; cups = 0; stuck = []; buildings = []; rumors = []; items = []; pops = [];
+    y = Hd * 0.4; vy = 0; dist = 0; cups = 0; gossipCrash = false; stuck = []; buildings = []; rumors = []; items = []; pops = [];
     nextB = 320; nextR = 1.5; shake = 0; crashT = 0;
     benches = [{ x: Wd * 0.85 }, { x: Wd * 0.85 + 520 }]; // benches are part of the street and scroll past
     $('score').textContent = 0;
@@ -199,6 +201,7 @@ canvas { display: block; width: 100%; height: 100%; }
     if (record) { best = s; $('best').textContent = best; saveBest(); }
     $('stamp').textContent = record ? 'НОВЫЙ РЕКОРД' : 'СЕНСАЦИЯ';
     $('line').textContent = LINES[Math.floor(Math.random() * LINES.length)] + (cups ? ` Выпито чашек чая: ${cups}.` : '');
+    try { const r = ETO.finish({ game: 'kover', score: s, cups, gossipCrash }); ETO.resultPanel($('over'), 'kover', s, r); } catch (e) {}
     $('over').hidden = false;
   }
 
@@ -247,7 +250,7 @@ canvas { display: block; width: 100%; height: 100%; }
       if (Math.abs(r.x + r.w / 2 - cx) < r.w / 2 - 6 && Math.abs(r.y - cy) < 16) {
         r.stuck = true; if (stuck.some(q => q.txt === r.txt)) continue; stuck.push({ txt: r.txt, t: 0 }); haptic('medium');
         pops.push({ txt: 'прилипло!', x: cx, y: cy - 50, t: 0, color: RED });
-        if (stuck.length >= 4) return crash('сплетни перевесили');
+        if (stuck.length >= 4) { gossipCrash = true; return crash('сплетни перевесили'); }
       }
     }
     for (const it of items) {
@@ -365,8 +368,8 @@ canvas { display: block; width: 100%; height: 100%; }
     ctx.fillStyle = SKIN; ctx.beginPath(); ctx.arc(17, -14, 4, 0, 7); ctx.fill();
     ctx.fillStyle = 'rgba(200,120,60,.85)'; ctx.fillRect(16, -27, 9, 11);
     ctx.fillStyle = '#b8b8c0'; ctx.fillRect(15, -20, 11, 8); ctx.fillRect(25, -19, 3, 5);
-    // carpet
-    ctx.fillStyle = RED;
+    // carpet (colour from the skin)
+    ctx.fillStyle = (window.ETO && ETO.skinColor('carpet')) || RED;
     ctx.beginPath(); ctx.moveTo(-40, wave(0)); ctx.quadraticCurveTo(-10, wave(1) - 4, 18, wave(2)); ctx.lineTo(40, wave(3) - 2);
     ctx.lineTo(40, wave(3) + 8); ctx.quadraticCurveTo(0, wave(2) + 12, -40, wave(0) + 10); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = PAPER; ctx.lineWidth = 1.5; ctx.setLineDash([3, 4]);
@@ -407,9 +410,6 @@ canvas { display: block; width: 100%; height: 100%; }
   requestAnimationFrame(frame);
 })();
 </script>
-<script>
-// opened from the Igroteka menu: Telegram back button returns to the menu
-(() => { try { const tg = window.Telegram && window.Telegram.WebApp; if (tg && tg.BackButton && sessionStorage.getItem('fromHub')) { const hub = location.pathname.replace(/((tapok|classic|kover)\/)?(index\.html)?$/, '') + 'igroteka/'; tg.BackButton.show(); tg.BackButton.onClick(() => { location.href = hub; }); } } catch (e) {} })();
-</script>
+<script>try { ETO.backButton(); ETO.challengeBanner(document.getElementById('start'), 'kover'); } catch (e) {}</script>
 </body>
 </html>

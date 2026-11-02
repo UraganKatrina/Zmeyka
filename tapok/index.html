@@ -6,7 +6,8 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <title>Тапок с балкона</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="../common/eto.css">
 <style>
 /* One dark night scene by choice: balcony top-left, street below, HUD strip on top. */
 :root {
@@ -36,7 +37,7 @@ h1 span { color: var(--red); }
 canvas { display: block; width: 100%; height: 100%; }
 .overlay {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 12px; padding: 24px; text-align: center; background: rgba(13,13,16,.82);
+  gap: 10px; overflow-y: auto; padding: 24px; text-align: center; background: rgba(13,13,16,.82);
 }
 .overlay h2 { font-family: var(--display); font-weight: 800; font-size: 26px; margin: 0; }
 .overlay p { margin: 0; color: var(--muted); max-width: 290px; line-height: 1.45; }
@@ -75,6 +76,7 @@ canvas { display: block; width: 100%; height: 100%; }
     </div>
   </div>
 </div>
+<script src="../common/eto.js"></script>
 <script>
 (() => {
   const tg = window.Telegram && window.Telegram.WebApp;
@@ -176,10 +178,12 @@ canvas { display: block; width: 100%; height: 100%; }
   function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
   function slipper(x, y, ang, s = 1) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(s, s);
-    ctx.fillStyle = PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2;
+    const sk = (window.ETO && ETO.skin('slipper')) || 'classic';
+    ctx.fillStyle = sk === 'gold' ? '#e2b94b' : PAPER; ctx.strokeStyle = INK; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.ellipse(0, 0, 16, 7, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = RED; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.strokeStyle = sk === 'flower' ? '#e58fb0' : sk === 'gold' ? '#b8892a' : RED; ctx.lineWidth = 4; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(-2, -2); ctx.quadraticCurveTo(5, -12, 12, -2); ctx.stroke();
+    if (sk === 'flower') { ctx.fillStyle = '#e58fb0'; for (const [fx, fy] of [[-9, 1], [-3, 3], [3, 1]]) { ctx.beginPath(); ctx.arc(fx, fy, 1.8, 0, 7); ctx.fill(); } }
     ctx.restore();
   }
   function redSock(x, y, s = 1) {
@@ -382,6 +386,7 @@ canvas { display: block; width: 100%; height: 100%; }
     if (score > best) { best = score; $('best').textContent = best; saveBest(); }
     $('final').textContent = score;
     $('line').textContent = (score > 0 && score >= best ? 'Новый рекорд. ' : '') + LINES[Math.floor(Math.random() * LINES.length)];
+    try { const r = ETO.finish({ game: 'tapok', score }); ETO.resultPanel($('over'), 'tapok', score, r); } catch (e) {}
     setTimeout(() => { $('over').hidden = false; }, 500);
   }
 
@@ -405,9 +410,6 @@ canvas { display: block; width: 100%; height: 100%; }
   $('again').addEventListener('click', start);
 })();
 </script>
-<script>
-// opened from the Igroteka menu: Telegram back button returns to the menu
-(() => { try { const tg = window.Telegram && window.Telegram.WebApp; if (tg && tg.BackButton && sessionStorage.getItem('fromHub')) { const hub = location.pathname.replace(/((tapok|classic|kover)\/)?(index\.html)?$/, '') + 'igroteka/'; tg.BackButton.show(); tg.BackButton.onClick(() => { location.href = hub; }); } } catch (e) {} })();
-</script>
+<script>try { ETO.backButton(); ETO.challengeBanner(document.getElementById('start'), 'tapok'); } catch (e) {}</script>
 </body>
 </html>
