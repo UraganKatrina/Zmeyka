@@ -1,0 +1,13 @@
+# Cloudflare Worker for the Igroteka bot + leaderboard. Deployed by .github/workflows/bot.yml
+name = "eto-games"
+main = "bot/worker.js"
+compatibility_date = "2024-09-23"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "eto-games"
+database_id = "__D1_ID__"   # filled in by the workflow
+
+[triggers]
+crons = ["* * * * *"]       # sends broadcasts in small chunks

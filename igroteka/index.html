@@ -78,6 +78,17 @@ a.game:focus-visible { outline: 3px solid var(--eto-red); outline-offset: 3px; }
 .ach div b { display: block; color: var(--eto-paper); font-size: 13px; margin-bottom: 3px; }
 .ach div.got { box-shadow: inset 0 0 0 1.5px var(--eto-red); }
 .ach div:not(.got) b { color: var(--eto-muted); }
+.chips { display: flex; gap: 6px; margin-bottom: 10px; }
+.chips button { font: 700 13px var(--eto-body); color: var(--eto-muted); background: var(--eto-panel); border: 0; border-radius: var(--eto-r-pill); padding: 8px 14px; cursor: pointer; }
+.chips button[aria-selected="true"] { background: var(--eto-paper); color: var(--eto-night); }
+.lb { list-style: none; margin: 0; padding: 0; counter-reset: r; }
+.lb li { counter-increment: r; display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--eto-r-md); font-size: 14px; }
+.lb li:nth-child(odd) { background: var(--eto-panel); }
+.lb li::before { content: counter(r); font: 800 14px var(--eto-display); color: var(--eto-muted); text-align: center; }
+.lb li:nth-child(-n+3)::before { color: var(--eto-red); }
+.lb li.me { box-shadow: inset 0 0 0 1.5px var(--eto-red); }
+.lb li b { font: 800 15px var(--eto-display); font-variant-numeric: tabular-nums; }
+.lb li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note { color: var(--eto-muted); font-size: 12px; line-height: 1.45; margin-top: 14px; }
 
 /* skins */
@@ -153,7 +164,15 @@ footer { text-align: center; color: var(--eto-muted); font-size: 12px; margin-to
       <div class="issue">твои рекорды · обновляется после каждой игры</div>
       <div id="recs"></div>
     </div>
-    <p class="note">Нажми «Вызвать друга» — он получит ссылку с твоим рекордом. Откроет игру, побьёт — и получит достижение «Принял вызов». Общая таблица всех игроков появится скоро.</p>
+    <p class="note">Нажми «Вызвать друга» — он получит ссылку с твоим рекордом. Откроет игру, побьёт — и получит достижение «Принял вызов».</p>
+    <div class="section-h">Все игроки</div>
+    <div class="chips" id="lbGames" role="tablist">
+      <button type="button" data-lb="zmeyka" aria-selected="true">Змейка</button>
+      <button type="button" data-lb="tapok" aria-selected="false">Тапок</button>
+      <button type="button" data-lb="kover" aria-selected="false">Сосед</button>
+    </div>
+    <ol class="lb" id="lb"></ol>
+    <p class="note" id="lbNote"></p>
     <div class="section-h">Достижения</div>
     <div class="ach" id="ach"></div>
   </section>
@@ -166,6 +185,7 @@ footer { text-align: center; color: var(--eto-muted); font-size: 12px; margin-to
   <footer>Новые игры — в канале «это_нормально»</footer>
 </div>
 
+<script src="../common/config.js"></script>
 <script src="../common/eto.js"></script>
 <script>
 (() => {
@@ -228,6 +248,27 @@ footer { text-align: center; color: var(--eto-muted); font-size: 12px; margin-to
     try { sessionStorage.setItem('fromHub', '1'); } catch (e) {}
     E.haptic('light');
   }));
+
+  // shared leaderboard
+  let lbGame = 'zmeyka';
+  const escH = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  async function loadLb() {
+    const list = $('lb'), note = $('lbNote');
+    if (!E.api()) { list.innerHTML = ''; note.textContent = 'Общая таблица включится, как только заработает сервер бота.'; return; }
+    note.textContent = 'Загружаю…';
+    const d = await E.top(lbGame);
+    if (!d) { note.textContent = 'Не получилось загрузить таблицу. Проверь интернет и открой вкладку ещё раз.'; return; }
+    if (!d.top.length) { list.innerHTML = ''; note.textContent = 'Пока никого. Сыграй — и ты первый в таблице.'; return; }
+    list.innerHTML = d.top.map(r => `<li class="${r.me ? 'me' : ''}"><span>${escH(r.name)}${r.me ? ' (ты)' : ''}</span><b>${r.score}</b></li>`).join('');
+    note.textContent = d.me && d.me.rank > d.top.length ? `Ты на ${d.me.rank} месте из ${d.players}.` : `Всего игроков: ${d.players}.` + (E.inTG ? '' : ' Чтобы попасть в таблицу, играй через Telegram-бота.');
+  }
+  document.querySelectorAll('[data-lb]').forEach(b => b.onclick = () => {
+    lbGame = b.dataset.lb;
+    document.querySelectorAll('[data-lb]').forEach(x => x.setAttribute('aria-selected', x === b));
+    E.haptic('light'); loadLb();
+  });
+  document.querySelector('[data-tab="wall"]').addEventListener('click', loadLb);
+  if (!$('wall').hidden) loadLb();
 
   E.on(render);
   render();

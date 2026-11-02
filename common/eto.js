@@ -171,6 +171,24 @@
       window.open(share, '_blank');
     },
 
+    /* global leaderboard (server is set up by the bot workflow; empty until then) */
+    api: () => (window.ETO_API || '').replace(/\/$/, ''),
+    online() { return !!(this.api() && inTG); },
+    async submit(game, score) {
+      if (!this.online() || !(score > 0)) return null;
+      try {
+        const r = await fetch(this.api() + '/api/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, game, score }) });
+        return r.ok ? await r.json() : null;
+      } catch (e) { return null; }
+    },
+    async top(game) {
+      if (!this.api()) return null;
+      try {
+        const r = await fetch(this.api() + '/api/top', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game, initData: inTG ? tg.initData : '' }) });
+        return r.ok ? await r.json() : null;
+      } catch (e) { return null; }
+    },
+
     /* newspaper card "Вести подъезда" → PNG blob */
     async card(game, score) {
       const g = GAMES[game], W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -227,6 +245,12 @@
       lines.push(`<div class="eto-row"><button type="button" class="eto-btn eto-btn-ghost" data-a="card">Поделиться</button><button type="button" class="eto-btn eto-btn-red" data-a="duel">Вызвать друга</button></div>`);
       el.innerHTML = lines.join('');
       el.querySelector('[data-a="card"]').onclick = () => this.shareCard(game, score);
+      // send the score to the shared table and show the place
+      this.submit(game, score).then(r => {
+        if (!r || !r.rank) return;
+        const b = document.createElement('div'); b.className = 'eto-badge'; b.textContent = `Место среди всех игроков: ${r.rank}`;
+        el.insertBefore(b, el.querySelector('.eto-row'));
+      });
       el.querySelector('[data-a="duel"]').onclick = () => this.challengeFriend(game, score);
     },
 
