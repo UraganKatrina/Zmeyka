@@ -64,7 +64,7 @@ canvas { display: block; width: 100%; height: 100%; }
   <header>
     <div>
       <h1>Сосед <span>улетел</span></h1>
-      <div class="tag">Держи палец — ковёр летит вверх. · v8</div>
+      <div class="tag">Держи палец — ковёр летит вверх. · v9</div>
     </div>
     <div class="scores">
       <div><b id="score">0</b><small>метров</small></div>
@@ -75,7 +75,7 @@ canvas { display: block; width: 100%; height: 100%; }
     <canvas id="c"></canvas>
     <div class="overlay" id="start">
       <h2>Говорят, сосед купил ковёр-самолёт.</h2>
-      <p>Так и есть. Держи палец — ковёр набирает высоту. Земля пружинит, а вот в дома и бельё лучше не врезаться. Уворачивайся от сплетен с лавочки: три прилипли — ковёр падает. Красный носок стряхивает сплетни.</p>
+      <p>Так и есть. Держи палец — ковёр набирает высоту. Земля пружинит, а вот в дома и бельё лучше не врезаться. Уворачивайся от сплетен с лавочки: четыре прилипли — ковёр падает, но каждая сама отваливается через 6 секунд. Красный носок стряхивает сплетни.</p>
       <button class="btn" id="go">Взлетаем</button>
     </div>
     <div class="overlay" id="over" hidden>
@@ -190,7 +190,10 @@ canvas { display: block; width: 100%; height: 100%; }
   function step(dt) {
     if (state === 'menu' || state === 'over') return;
     if (state === 'crash') { crashT += dt; vy += 900 * dt; y = Math.min(ground() - 10, y + vy * dt); shake = Math.max(0, shake - dt); return; }
-    const heavy = 1 + stuck.length * 0.18;
+    // a stuck rumour falls off by itself after 6 seconds
+    stuck.forEach(st => st.t += dt);
+    if (stuck.some(st => st.t >= 6)) { stuck = stuck.filter(st => st.t < 6); pops.push({ txt: 'сплетня отвалилась', x: PX(), y: y - 60, t: 0, color: PAPER }); }
+    const heavy = 1 + stuck.length * 0.15;
     const g = Hd * 0.62 * heavy, lift = Hd * 1.35;
     vy += (g - (hold ? lift : 0)) * dt;
     vy *= 1 - 1.6 * dt;
@@ -224,9 +227,9 @@ canvas { display: block; width: 100%; height: 100%; }
     for (const r of rumors) {
       if (r.stuck) continue;
       if (Math.abs(r.x + r.w / 2 - cx) < r.w / 2 - 6 && Math.abs(r.y - cy) < 16) {
-        r.stuck = true; stuck.push(r.txt); haptic('medium');
+        r.stuck = true; stuck.push({ txt: r.txt, t: 0 }); haptic('medium');
         pops.push({ txt: 'прилипло!', x: cx, y: cy - 50, t: 0, color: RED });
-        if (stuck.length >= 3) return crash('сплетни перевесили');
+        if (stuck.length >= 4) return crash('сплетни перевесили');
       }
     }
     for (const it of items) {
@@ -302,7 +305,7 @@ canvas { display: block; width: 100%; height: 100%; }
     const tilt = Math.max(-0.25, Math.min(0.3, vy / (Hd * 2.4)));
     ctx.translate(x, cy); ctx.rotate(tilt);
     // stuck rumors trail behind
-    stuck.forEach((s, i) => { ctx.font = '700 12px Manrope, sans-serif'; const w = ctx.measureText(s).width + 26; bubble(s, -40 - w - i * 8, 18 + i * 22, w, true); });
+    stuck.forEach((s, i) => { ctx.font = '700 12px Manrope, sans-serif'; const w = ctx.measureText(s.txt).width + 26; ctx.globalAlpha = s.t > 4.5 ? (Math.sin(s.t * 20) > 0 ? 0.35 : 1) : 1; bubble(s.txt, -40 - w - i * 8, 18 + i * 22, w, true); ctx.globalAlpha = 1; });
     // neighbour: round head, flat cap, big moustache, tracksuit with two stripes, tea glass in a holder
     const SKIN = '#f0d8bf', GING = '#d9732a';
     ctx.fillStyle = '#26262e'; rr(-16, -32, 32, 32, 10); ctx.fill();
@@ -364,7 +367,7 @@ canvas { display: block; width: 100%; height: 100%; }
     if (state === 'play' || state === 'crash') {
       ctx.font = '700 12px Manrope, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#9a9aa2';
       ctx.fillText('сплетни:', 14, 20);
-      for (let i = 0; i < 3; i++) { ctx.fillStyle = i < stuck.length ? RED : '#3a3a44'; ctx.beginPath(); ctx.arc(80 + i * 16, 20, 5, 0, 7); ctx.fill(); }
+      for (let i = 0; i < 4; i++) { ctx.fillStyle = i < stuck.length ? RED : '#3a3a44'; ctx.beginPath(); ctx.arc(80 + i * 16, 20, 5, 0, 7); ctx.fill(); }
     }
     pops.forEach(p => { ctx.globalAlpha = 1 - p.t; ctx.fillStyle = p.color; ctx.font = '800 14px Unbounded, Arial Black, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(p.txt, p.x, p.y - p.t * 30); });
     ctx.globalAlpha = 1;
