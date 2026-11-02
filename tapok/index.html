@@ -110,7 +110,8 @@ canvas { display: block; width: 100%; height: 100%; }
 
   const KINDS = [
     { name: 'car', w: 74, h: 30, sound: 'УИУ-УИУ', line: 'сигналка' },
-    { name: 'speaker', w: 40, h: 46, sound: 'БУМ-БУМ', line: 'колонка' },
+    { name: 'lacetti', w: 76, h: 30, sound: 'БУМ-БУМ', line: 'Лачетти с басами' },
+    { name: 'w220', w: 96, h: 32, sound: 'ТУЦ-ТУЦ', line: 'Мерс 220' },
     { name: 'scooter', w: 52, h: 40, sound: 'ДЗЫНЬ', line: 'самокат' },
     { name: 'cat', w: 46, h: 30, sound: 'МЯУУУ', line: 'кот' },
   ];
@@ -265,9 +266,26 @@ canvas { display: block; width: 100%; height: 100%; }
       ctx.fillStyle = '#3a3a42'; rr(x - 37, y - 22, 74, 18, 6); ctx.fill(); rr(x - 20, y - 34, 40, 14, 6); ctx.fill();
       ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(x - 22, y - 4, 7, 0, 7); ctx.arc(x + 22, y - 4, 7, 0, 7); ctx.fill();
       if (!g.hit && Math.sin(t * 12) > 0) { ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(x, y - 37, 4, 0, 7); ctx.fill(); }
-    } else if (k.name === 'speaker') {
-      ctx.fillStyle = '#3a3a42'; rr(x - 20, y - 46 + bob, 40, 46, 6); ctx.fill();
-      ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(x, y - 16 + bob, 11 + Math.abs(bob), 0, 7); ctx.arc(x, y - 36 + bob, 5, 0, 7); ctx.fill();
+    } else if (k.name === 'lacetti' || k.name === 'w220') {
+      // sedan bouncing to the bass: Lacetti = compact silver, W220 = long black with chrome line
+      const L = k.name === 'w220', f = Math.sign(g.vx || 1), hw = k.w / 2, b2 = g.hit ? 0 : Math.abs(Math.sin(t * 14 + g.ph)) * 2.5;
+      ctx.save(); ctx.translate(x, y); ctx.scale(f, 1);
+      ctx.fillStyle = L ? '#202026' : '#8c8e96';
+      ctx.beginPath();
+      ctx.moveTo(-hw, -8 - b2); ctx.lineTo(-hw, -18 - b2); ctx.quadraticCurveTo(-hw + 4, -22 - b2, -hw + 14, -22 - b2);
+      ctx.lineTo(L ? -24 : -18, -22 - b2); ctx.quadraticCurveTo(L ? -14 : -10, -34 - b2, L ? 0 : 2, -34 - b2);
+      ctx.lineTo(L ? 18 : 12, -34 - b2); ctx.quadraticCurveTo(L ? 30 : 22, -33 - b2, L ? 34 : 26, -22 - b2);
+      ctx.lineTo(hw - 6, -21 - b2); ctx.quadraticCurveTo(hw, -19 - b2, hw, -12 - b2); ctx.lineTo(hw, -8 - b2); ctx.closePath(); ctx.fill();
+      if (L) { ctx.strokeStyle = '#9a9aa2'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-hw + 4, -15 - b2); ctx.lineTo(hw - 4, -15 - b2); ctx.stroke(); }
+      ctx.fillStyle = '#5a6a7a'; // windows
+      ctx.beginPath(); ctx.moveTo(L ? -20 : -15, -22 - b2); ctx.quadraticCurveTo(L ? -12 : -8, -31 - b2, L ? 0 : 2, -31 - b2); ctx.lineTo(L ? 17 : 11, -31 - b2); ctx.quadraticCurveTo(L ? 26 : 19, -30 - b2, L ? 29 : 22, -22 - b2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = L ? '#202026' : '#8c8e96'; ctx.fillRect(L ? 3 : 2, -32 - b2, 3, 10);
+      ctx.fillStyle = '#f0e2a8'; ctx.beginPath(); ctx.ellipse(hw - 3, -15 - b2, 3, 2.2, 0, 0, 7); ctx.fill(); // headlight
+      ctx.fillStyle = RED; ctx.fillRect(-hw, -17 - b2, 3, 4); // tail light
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(-hw + 16, -5, 7, 0, 7); ctx.arc(hw - 16, -5, 7, 0, 7); ctx.fill();
+      ctx.fillStyle = '#6a6a72'; ctx.beginPath(); ctx.arc(-hw + 16, -5, 3, 0, 7); ctx.arc(hw - 16, -5, 3, 0, 7); ctx.fill();
+      if (!g.hit) { ctx.strokeStyle = 'rgba(214,40,40,.55)'; ctx.lineWidth = 2; for (let i = 1; i <= 2; i++) { const r = 6 + i * 7 + b2 * 2; ctx.beginPath(); ctx.arc(L ? 8 : 4, -26, r, -2.4, -0.7); ctx.stroke(); } }
+      ctx.restore();
     } else if (k.name === 'scooter') {
       ctx.strokeStyle = '#4a4a54'; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.moveTo(x - 20, y - 6); ctx.lineTo(x + 18, y - 6); ctx.lineTo(x + 16 * Math.sign(g.vx || 1), y - 40); ctx.stroke();
