@@ -50,13 +50,13 @@ canvas { width: 100%; height: 100%; display: block; }
 .overlay .big { font-family: var(--display); font-size: 42px; color: var(--paper); }
 .btn { font: 700 16px var(--body); background: var(--paper); color: var(--night); border: 0; border-radius: 999px; padding: 14px 28px; cursor: pointer; margin-top: 6px; }
 .btn:focus-visible, .pad button:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; }
-.pad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(2, 56px); gap: 8px; justify-content: center; }
-.pad button { background: var(--panel); color: var(--paper); border: 2px solid var(--line); border-radius: 14px; font-size: 22px; cursor: pointer; touch-action: none; }
-.pad button:active { background: var(--line); }
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 66px); gap: 10px; width: 100%; max-width: 320px; margin: 0 auto; }
+.pad button { background: var(--panel); color: var(--paper); border: 2px solid var(--line); border-radius: 16px; font-size: 26px; cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent; transition: transform .06s, background .06s; }
+.pad button:active, .pad button.on { background: var(--line); border-color: var(--paper); transform: scale(.94); }
 .pad .up { grid-column: 2; grid-row: 1; } .pad .left { grid-column: 1; grid-row: 2; } .pad .down { grid-column: 2; grid-row: 2; } .pad .right { grid-column: 3; grid-row: 2; }
 .legend { display: flex; justify-content: center; gap: 16px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
-@media (max-height: 640px) { .pad { grid-template-rows: repeat(2, 46px); } .legend { display: none; } }
+@media (max-height: 640px) { .pad { grid-template-rows: repeat(2, 52px); } .legend { display: none; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 
@@ -144,9 +144,11 @@ canvas { width: 100%; height: 100%; display: block; }
     clearTimeout(timer); loop();
   }
 
+  let lastStep = 0;
   function loop() {
     if (!alive) return;
-    step(); draw();
+    clearTimeout(timer);
+    step(); draw(); lastStep = performance.now();
     timer = setTimeout(loop, tickMs);
   }
 
@@ -209,20 +211,37 @@ canvas { width: 100%; height: 100%; display: block; }
   }
 
   const DIRS = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
-  const turn = (name) => { const d = DIRS[name]; if (!d) return; const last = queue.length ? queue[queue.length - 1] : dir; if ((d.x === -last.x && d.y === -last.y) || (d.x === last.x && d.y === last.y) || queue.length > 2) return; queue.push(d); };
+  // queue up to 3 turns; if the snake is mid-tick, apply the first turn right away so the controls feel instant
+  const turn = (name) => {
+    const d = DIRS[name]; if (!d) return;
+    const last = queue.length ? queue[queue.length - 1] : dir;
+    if ((d.x === -last.x && d.y === -last.y) || (d.x === last.x && d.y === last.y) || queue.length > 2) return;
+    queue.push(d);
+    if (alive && queue.length === 1 && performance.now() - lastStep > tickMs * 0.4) loop();
+  };
   addEventListener('keydown', (e) => {
     const k = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' }[e.code];
     if (k) { e.preventDefault(); if (!alive && !$('startScreen').hidden) start(); turn(k); }
     if ((e.code === 'Space' || e.code === 'Enter') && !alive) { e.preventDefault(); start(); }
   });
-  document.querySelectorAll('.pad button').forEach(b => b.addEventListener('pointerdown', (e) => { e.preventDefault(); turn(b.dataset.dir); haptic('light'); }));
-  let t0 = null;
-  $('board').addEventListener('pointerdown', (e) => { t0 = { x: e.clientX, y: e.clientY }; });
-  $('board').addEventListener('pointerup', (e) => {
-    if (!t0) return; const dx = e.clientX - t0.x, dy = e.clientY - t0.y; t0 = null;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
-    turn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  document.querySelectorAll('.pad button').forEach(b => {
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); turn(b.dataset.dir); haptic('light'); b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 120); });
+    b.addEventListener('contextmenu', (e) => e.preventDefault());
   });
+  let t0 = null;
+  const SWIPE = 16;
+  document.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; t0 = { x: e.clientX, y: e.clientY }; });
+  document.addEventListener('pointermove', (e) => {
+    if (!t0) return;
+    const dx = e.clientX - t0.x, dy = e.clientY - t0.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE) return;
+    turn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+    haptic('light');
+    t0 = { x: e.clientX, y: e.clientY }; // keep finger down and swipe again for the next turn
+  });
+  const endSwipe = () => { t0 = null; };
+  document.addEventListener('pointerup', endSwipe);
+  document.addEventListener('pointercancel', endSwipe);
   $('startBtn').addEventListener('click', start);
   $('againBtn').addEventListener('click', start);
 
