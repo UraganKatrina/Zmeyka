@@ -80,11 +80,8 @@ jobs:
             {"command":"bug","description":"Сообщить об ошибке"},
             {"command":"stop","description":"Не присылать новости"},
             {"command":"notify","description":"Присылать новые игры"}]}' > /dev/null
-          curl -sf "https://api.telegram.org/bot${BOT_TOKEN}/setMyDescription" --data-urlencode "description=Игротека «это_нормально» ☕
-
-Чайная змейка, тапок с балкона и сосед на ковре-самолёте. Собирай чашки, покупай скины и вызывай друзей побить твой рекорд.
-
-5 минут для себя — это нормально." > /dev/null
+          DESC=$(printf 'Игротека «это_нормально» ☕\n\nЧайная змейка, тапок с балкона и сосед на ковре-самолёте. Собирай чашки, покупай скины и вызывай друзей побить твой рекорд.\n\n5 минут для себя — это нормально.')
+          curl -sf "https://api.telegram.org/bot${BOT_TOKEN}/setMyDescription" --data-urlencode "description=${DESC}" > /dev/null
           curl -sf "https://api.telegram.org/bot${BOT_TOKEN}/setMyShortDescription" --data-urlencode "short_description=Мини-игры от это_нормально: змейка, тапок, сосед на ковре ☕" > /dev/null
           echo "Webhook, commands and description set."
 
