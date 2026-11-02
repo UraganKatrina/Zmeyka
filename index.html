@@ -78,7 +78,7 @@ canvas { width: 100%; height: 100%; display: block; }
     <canvas id="cv" width="600" height="600" aria-label="Игровое поле"></canvas>
     <div class="overlay" id="startScreen">
       <h2>Собери весь чай,<br>пока не остыл</h2>
-      <p>Свайп или стрелки. Красный носок — бонус +3. В себя и в стену — нельзя.</p>
+      <p>Свайп или стрелки. Красный носок — бонус +3. Стены пропускают: ушёл вправо — вышел слева. Нельзя только в себя.</p>
       <button class="btn" id="startBtn">Играть</button>
     </div>
     <div class="overlay" id="overScreen" hidden>
@@ -109,7 +109,7 @@ canvas { width: 100%; height: 100%; display: block; }
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const C = { panel: css('--panel'), line: css('--line'), paper: css('--paper'), red: css('--red'), steam: css('--steam'), night: css('--night') };
 
-  let snake, dir, nextDir, food, sock, score, best = 0, tickMs, timer = null, alive = false, frame = 0;
+  let snake, dir, queue = [], food, sock, score, best = 0, tickMs, timer = null, alive = false, frame = 0;
 
   // best score: Telegram CloudStorage when available, else localStorage
   const loadBest = () => {
@@ -133,7 +133,7 @@ canvas { width: 100%; height: 100%; display: block; }
 
   function reset() {
     snake = [{ x: 8, y: 9 }, { x: 7, y: 9 }, { x: 6, y: 9 }];
-    dir = nextDir = { x: 1, y: 0 };
+    dir = { x: 1, y: 0 }; queue = [];
     score = 0; tickMs = 210; food = null; food = free(); sock = null;
     $('score').textContent = 0;
   }
@@ -151,9 +151,9 @@ canvas { width: 100%; height: 100%; display: block; }
   }
 
   function step() {
-    if (nextDir.x !== -dir.x || nextDir.y !== -dir.y) dir = nextDir;
-    const h = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
-    if (h.x < 0 || h.y < 0 || h.x >= N || h.y >= N || snake.some(s => s.x === h.x && s.y === h.y)) return gameOver();
+    if (queue.length) dir = queue.shift();
+    const h = { x: (snake[0].x + dir.x + N) % N, y: (snake[0].y + dir.y + N) % N };
+    if (snake.slice(0, -1).some(s => s.x === h.x && s.y === h.y)) return gameOver();
     snake.unshift(h);
     let grew = false;
     if (h.x === food.x && h.y === food.y) { score += 1; grew = true; food = free(); haptic('light'); }
@@ -209,7 +209,7 @@ canvas { width: 100%; height: 100%; display: block; }
   }
 
   const DIRS = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
-  const turn = (name) => { const d = DIRS[name]; if (d) nextDir = d; };
+  const turn = (name) => { const d = DIRS[name]; if (!d) return; const last = queue.length ? queue[queue.length - 1] : dir; if ((d.x === -last.x && d.y === -last.y) || (d.x === last.x && d.y === last.y) || queue.length > 2) return; queue.push(d); };
   addEventListener('keydown', (e) => {
     const k = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right' }[e.code];
     if (k) { e.preventDefault(); if (!alive && !$('startScreen').hidden) start(); turn(k); }
