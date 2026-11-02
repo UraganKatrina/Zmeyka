@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<title>Игротека это_нормально</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;700&display=swap">
+<style>
+/* Game hub: header with logo, then one card per game. Single dark look to match the games. */
+:root {
+  --night: #141416; --panel: #1e1e24; --line: #2c2c34; --paper: #f2f1ec; --muted: #9a9aa2; --red: #d62828;
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+html, body { margin: 0; }
+body {
+  background: var(--night); color: var(--paper); font-family: var(--body);
+  padding: 16px max(16px, env(safe-area-inset-right)) 32px max(16px, env(safe-area-inset-left));
+  -webkit-tap-highlight-color: transparent;
+}
+.wrap { max-width: 480px; margin: 0 auto; }
+header { display: flex; align-items: center; gap: 14px; margin: 4px 0 22px; }
+header img { width: 56px; height: 56px; border-radius: 50%; }
+h1 { font-family: var(--display); font-weight: 800; font-size: 22px; line-height: 1.1; margin: 0; }
+h1 span { color: var(--red); }
+.sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.list { display: grid; gap: 14px; }
+a.card { display: block; text-decoration: none; color: inherit; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 18px; overflow: hidden; transition: transform .08s; }
+a.card:active { transform: scale(.98); }
+.thumb { aspect-ratio: 16 / 9; width: 100%; display: block; object-fit: cover; background: #111; }
+.classic { aspect-ratio: 16 / 9; background: #9bad5e; display: grid; place-items: center; }
+.classic svg { width: 62%; height: auto; }
+.info { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; }
+.info b { font-family: var(--display); font-weight: 800; font-size: 16px; display: block; }
+.info small { color: var(--muted); font-size: 13px; display: block; margin-top: 3px; }
+.play { flex: none; background: var(--paper); color: var(--night); font-weight: 700; font-size: 14px; padding: 9px 16px; border-radius: 999px; }
+.soon { opacity: .55; pointer-events: none; }
+.soon .play { background: var(--line); color: var(--muted); }
+.best { color: var(--red); font-weight: 700; }
+footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 26px; line-height: 1.5; }
+footer a { color: var(--paper); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="logo.jpg" alt="">
+    <div>
+      <h1>Игротека<span>.</span></h1>
+      <div class="sub">от это_нормально · 5 минут для себя</div>
+    </div>
+  </header>
+
+  <div class="list">
+    <a class="card" href="../">
+      <img class="thumb" src="zmeyka.jpg" alt="">
+      <div class="info"><div><b>Чайная змейка</b><small>Собери чай, пока не остыл <span class="best" data-key="tea_snake_best"></span></small></div><span class="play">Играть</span></div>
+    </a>
+    <a class="card" href="../tapok/">
+      <img class="thumb" src="tapok.jpg" alt="">
+      <div class="info"><div><b>Тапок с балкона</b><small>Верни тишину во двор <span class="best" data-key="tapok_best"></span></small></div><span class="play">Играть</span></div>
+    </a>
+    <a class="card" href="../classic/">
+      <div class="classic"><svg viewBox="0 0 200 80" aria-hidden="true"><g fill="#26301a"><rect x="20" y="40" width="16" height="16"/><rect x="38" y="40" width="16" height="16"/><rect x="56" y="40" width="16" height="16"/><rect x="74" y="40" width="16" height="16"/><rect x="92" y="40" width="16" height="16"/><rect x="92" y="22" width="16" height="16"/><rect x="110" y="22" width="16" height="16"/><rect x="128" y="22" width="16" height="16"/><rect x="164" y="22" width="6" height="6"/><rect x="170" y="16" width="6" height="6"/><rect x="176" y="22" width="6" height="6"/><rect x="170" y="28" width="6" height="6"/></g></svg></div>
+      <div class="info"><div><b>Змейка классика</b><small>Как на старом телефоне <span class="best" data-key="classic_snake_best"></span></small></div><span class="play">Играть</span></div>
+    </a>
+    <div class="card soon">
+      <div class="info"><div><b>Сосед улетел</b><small>Ковёр-самолёт против сплетен · скоро</small></div><span class="play">Скоро</span></div>
+    </div>
+  </div>
+
+  <footer>Новые игры — в канале «это_нормально»</footer>
+</div>
+<script>
+(() => {
+  const tg = window.Telegram && window.Telegram.WebApp;
+  try { if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor && tg.setHeaderColor('#141416'); tg.setBackgroundColor && tg.setBackgroundColor('#141416'); } } catch (e) {}
+  // show personal best under each game (same device)
+  document.querySelectorAll('.best').forEach(el => {
+    try { const v = +localStorage.getItem(el.dataset.key) || 0; if (v) el.textContent = '· рекорд ' + v; } catch (e) {}
+  });
+  document.querySelectorAll('a.card').forEach(a => a.addEventListener('click', () => {
+    try { sessionStorage.setItem('fromHub', '1'); } catch (e) {}
+    try { tg && tg.HapticFeedback && tg.HapticFeedback.impactOccurred('light'); } catch (e) {}
+  }));
+})();
+</script>
+</body>
+</html>

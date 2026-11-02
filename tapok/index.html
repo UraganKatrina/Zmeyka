@@ -405,5 +405,9 @@ canvas { display: block; width: 100%; height: 100%; }
   $('again').addEventListener('click', start);
 })();
 </script>
+<script>
+// opened from the Igroteka menu: Telegram back button returns to the menu
+(() => { try { const tg = window.Telegram && window.Telegram.WebApp; if (tg && tg.BackButton && sessionStorage.getItem('fromHub')) { const hub = location.pathname.replace(/((tapok|classic|kover)\/)?(index\.html)?$/, '') + 'igroteka/'; tg.BackButton.show(); tg.BackButton.onClick(() => { location.href = hub; }); } } catch (e) {} })();
+</script>
 </body>
 </html>
