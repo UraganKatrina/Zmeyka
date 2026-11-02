@@ -1,4 +1,4 @@
-// это_нормально · сервер Игротеки (Cloudflare Worker + D1)
+// это_нормально · сервер Игротеки (Cloudflare Worker + D1) · v1
 // - вебхук Telegram-бота: /start /games /top /bug /stop /notify /setbugs /announce
 // - API рекордов для игр: подпись Telegram проверяется на сервере, накрутка не проходит
 // Секреты (env): BOT_TOKEN, TG_SECRET. База: env.DB (D1).
