@@ -109,7 +109,7 @@ canvas { width: 100%; height: 100%; display: block; }
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const C = { panel: css('--panel'), line: css('--line'), paper: css('--paper'), red: css('--red'), steam: css('--steam'), night: css('--night') };
 
-  let snake, dir, queue = [], food, sock, score, best = 0, tickMs, timer = null, alive = false, frame = 0;
+  let snake, from = [], dir, queue = [], food, sock, score, best = 0, tickMs, timer = null, alive = false, frame = 0;
 
   // best score: Telegram CloudStorage when available, else localStorage
   const loadBest = () => {
@@ -133,7 +133,7 @@ canvas { width: 100%; height: 100%; display: block; }
 
   function reset() {
     snake = [{ x: 8, y: 9 }, { x: 7, y: 9 }, { x: 6, y: 9 }];
-    dir = { x: 1, y: 0 }; queue = [];
+    dir = { x: 1, y: 0 }; queue = []; from = [];
     score = 0; tickMs = 330; food = null; food = free(); sock = null;
     $('score').textContent = 0;
   }
@@ -148,12 +148,13 @@ canvas { width: 100%; height: 100%; display: block; }
   function loop() {
     if (!alive) return;
     clearTimeout(timer);
-    step(); draw(); lastStep = performance.now();
+    step(); lastStep = performance.now();
     timer = setTimeout(loop, tickMs);
   }
 
   function step() {
     if (queue.length) dir = queue.shift();
+    from = snake.map(p => ({ ...p })); // positions before this tick, for smooth drawing
     const h = { x: (snake[0].x + dir.x + N) % N, y: (snake[0].y + dir.y + N) % N };
     if (snake.slice(0, -1).some(s => s.x === h.x && s.y === h.y)) return gameOver();
     snake.unshift(h);
@@ -191,19 +192,28 @@ canvas { width: 100%; height: 100%; display: block; }
     ctx.fillStyle = C.paper; ctx.fillRect(cx - s * .18, cy - s * .38, s * .32, s * .08);
   }
 
-  function draw() {
+  // segment i glides from where it was last tick to where it is now; across a wall it slides in from the edge
+  function pos(i, a) {
+    const to = snake[i], fr = from[i] || to;
+    let fx = fr.x, fy = fr.y;
+    if (to.x - fx > 1) fx += N; else if (to.x - fx < -1) fx -= N;
+    if (to.y - fy > 1) fy += N; else if (to.y - fy < -1) fy -= N;
+    return { x: fx + (to.x - fx) * a, y: fy + (to.y - fy) * a };
+  }
+  function draw(a = 1) {
     const W = cv.width, s = W / N;
     ctx.fillStyle = C.panel; ctx.fillRect(0, 0, W, W);
     ctx.strokeStyle = C.line; ctx.lineWidth = 1;
     for (let i = 1; i < N; i++) { ctx.beginPath(); ctx.moveTo(i * s, 0); ctx.lineTo(i * s, W); ctx.moveTo(0, i * s); ctx.lineTo(W, i * s); ctx.stroke(); }
     if (food) cup(food.x * s + s / 2, food.y * s + s / 2 + s * .06, s);
     if (sock && (sock.ttl > 15 || frame % 2)) sockShape(sock.x * s + s / 2, sock.y * s + s / 2, s);
-    snake.forEach((p, i) => {
+    for (let i = snake.length - 1; i >= 0; i--) {
+      const p = pos(i, a);
       ctx.fillStyle = C.paper; const pad = i === 0 ? 1.5 : 3;
       ctx.beginPath(); ctx.roundRect(p.x * s + pad, p.y * s + pad, s - pad * 2, s - pad * 2, i === 0 ? s * .32 : s * .2); ctx.fill();
-    });
+    }
     if (snake.length) { // eyes on the head, one bigger than the other
-      const h = snake[0], cx = h.x * s + s / 2, cy = h.y * s + s / 2, px = -dir.y, py = dir.x;
+      const h = pos(0, a), cx = h.x * s + s / 2, cy = h.y * s + s / 2, px = -dir.y, py = dir.x;
       ctx.fillStyle = C.night;
       ctx.beginPath(); ctx.arc(cx + dir.x * s * .12 + px * s * .2, cy + dir.y * s * .12 + py * s * .2, s * .07, 0, 7); ctx.fill();
       ctx.beginPath(); ctx.arc(cx + dir.x * s * .12 - px * s * .2, cy + dir.y * s * .12 - py * s * .2, s * .11, 0, 7); ctx.fill();
@@ -245,7 +255,16 @@ canvas { width: 100%; height: 100%; display: block; }
   $('startBtn').addEventListener('click', start);
   $('againBtn').addEventListener('click', start);
 
-  loadBest(); reset(); draw();
+  // sharp canvas: match the board's real pixel size
+  const fit = () => { const px = Math.round($('board').clientWidth * Math.min(3, devicePixelRatio || 1)); if (px > 0 && cv.width !== px) { cv.width = cv.height = px; } };
+  addEventListener('resize', fit); fit();
+  // draw every animation frame so movement is smooth even though the game ticks slowly
+  (function render(now) {
+    const a = alive ? Math.min(1, (performance.now() - lastStep) / tickMs) : 1;
+    if (snake) draw(a);
+    requestAnimationFrame(render);
+  })();
+  loadBest(); reset(); from = []; draw();
 })();
 </script>
 
