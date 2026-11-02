@@ -64,7 +64,7 @@ canvas { display: block; width: 100%; height: 100%; }
   <header>
     <div>
       <h1>Сосед <span>улетел</span></h1>
-      <div class="tag">Держи палец — ковёр летит вверх. · v11</div>
+      <div class="tag">Держи палец — ковёр летит вверх. · v12</div>
     </div>
     <div class="scores">
       <div><b id="score">0</b><small>метров</small></div>
@@ -115,7 +115,12 @@ canvas { display: block; width: 100%; height: 100%; }
   window.addEventListener('resize', resize); resize();
 
   const PAPER = '#f2f1ec', INK = '#141416', RED = '#d62828';
-  const RUMORS = ['в кредит!', 'дорогущий!', 'а жена знает?', 'на какие деньги?', 'я сразу поняла', 'с турецкого рынка', 'говорят, краденый', 'вот это да!', 'а налоги?'];
+  // gossip escalates the further he flies: from "bought a carpet" to complete nonsense
+  const RUMORS = [
+    ['ковёр в кредит!', 'а жена знает?', 'на какие деньги?', 'я сразу поняла', 'с рынка небось', 'соседка видела', 'а кто разрешил?', 'опять не здоровается'],
+    ['он в Дубай летит!', 'тапки не свои!', 'носки разные!', 'чай без сахара пьёт!', 'у него таких три', 'ковёр с GPS!', 'платит за воду?', 'от тёщи сбежал'],
+    ['ковёр с ним говорит', 'он теперь депутат', 'у ковра прописка', 'по телеку показали!', 'летит за хлебом в Париж', 'ковёр бабушки Зины!', 'он и есть Аладдин', 'вернётся миллионером'],
+  ];
   const LINES = [
     'Свидетели: все. Видевшие: никто.',
     'Подробности — у бабушек на лавочке.',
@@ -155,7 +160,8 @@ canvas { display: block; width: 100%; height: 100%; }
   }
 
   function addRumor() {
-    const txt = RUMORS[Math.floor(Math.random() * RUMORS.length)];
+    const tier = dist < 600 ? 0 : dist < 1500 ? (Math.random() < 0.5 ? 0 : 1) : (Math.random() < 0.4 ? 1 : 2);
+    const pool = RUMORS[tier], txt = pool[Math.floor(Math.random() * pool.length)];
     ctx.font = '700 12px Manrope, sans-serif';
     const w = ctx.measureText(txt).width + 20;
     // gossip comes only from a bench that is on screen ahead of the neighbour
