@@ -166,11 +166,12 @@ canvas { display: block; width: 100%; height: 100%; }
     const w = ctx.measureText(txt).width + 20;
     // gossip comes only from a bench that is on screen ahead of the neighbour
     const b = benches.find(q => q.x > PX() + 70 && q.x < Wd + 30);
-    if (!b) { nextR = 0.3; return; }
+    if (!b) return false;
     const sx = b.x - 10, sy = ground() - 60;
     const ty = y + (Math.random() * 80 - 40);
     const T = 2.5;
     rumors.push({ txt, w, x: sx, y: sy, vx: (PX() - sx) / T - speed() * 0.15, vy: (ty - sy) / T, stuck: false });
+    return true;
   }
 
   function hitRect(cx, cy, r, x0, y0, x1, y1) {
@@ -216,7 +217,7 @@ canvas { display: block; width: 100%; height: 100%; }
     nextB -= sp * dt;
     if (nextB <= 0) { addBuilding(Wd + 10); nextB = 250 + Math.random() * 150 - Math.min(50, dist / 150); }
     nextR -= dt;
-    if (nextR <= 0) { addRumor(); nextR = Math.max(1.6, 3.0 - dist / 3000) + Math.random() * 1.0; }
+    if (nextR <= 0) { nextR = addRumor() ? Math.max(1.6, 3.0 - dist / 3000) + Math.random() * 1.0 : 0.3; }
 
     benches.forEach(q => q.x -= sp * dt);
     benches = benches.filter(q => q.x > -60);
